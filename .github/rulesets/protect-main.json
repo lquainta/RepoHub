@@ -82,6 +82,10 @@
           {
             "context": "App UI tests (macOS)",
             "integration_id": 15368
+          },
+          {
+            "context": "Env sample",
+            "integration_id": 15368
           }
         ]
       }

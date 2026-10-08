@@ -63,6 +63,10 @@ lint: ## Run SwiftLint in strict mode
 lint-fix: ## Auto-correct SwiftLint violations where possible
 	swiftlint lint --fix --quiet
 
+.PHONY: check-env
+check-env: ## Verify every backend environment variable is documented in .env.sample
+	scripts/check-env-sample.sh
+
 .PHONY: format format-check
 format: ## Format all Swift sources in place with swift-format
 	swift format --in-place --recursive --parallel $(FORMAT_PATHS)

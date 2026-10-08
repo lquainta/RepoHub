@@ -1,6 +1,7 @@
 import Vapor
 
 /// Configures services, middleware, and routes for the application.
-func configure(_ app: Application) async throws {
+func configure(_ app: Application, reader: EnvironmentReader = EnvironmentReader()) async throws {
+    app.config = try AppConfig(reader: reader)
     try routes(app)
 }
