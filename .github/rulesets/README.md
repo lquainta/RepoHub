@@ -4,9 +4,16 @@ Branch protection for this repository is kept under version control here so chan
 
 | File | Applies to | Summary |
 | --- | --- | --- |
-| `protect-main.json` | default branch (`main`) | PR required, squash-only merges, linear history, no force pushes or deletion, review threads must be resolved, automatic Copilot code review |
+| `protect-main.json` | default branch (`main`) | PR required, squash-only merges, linear history, no force pushes or deletion, review threads must be resolved, automatic Copilot code review, required status checks |
 
-Required status checks are added to `protect-main.json` as CI jobs land (see #38).
+## Required status checks
+
+| Check | Workflow |
+| --- | --- |
+| `Conventional PR title` | `pr-checks.yml` |
+| `Linked issue` | `pr-checks.yml` |
+
+CI jobs are added here as they land (see #38). `integration_id` 15368 is the GitHub Actions app, so only Actions can satisfy these checks.
 
 ## Applying a change
 
