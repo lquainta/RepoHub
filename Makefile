@@ -17,6 +17,7 @@ help: ## Show available targets
 .PHONY: bootstrap
 bootstrap: ## Check required tools, resolve dependencies, and generate the Xcode project
 	@command -v xcodegen >/dev/null || { echo "xcodegen not found: brew install xcodegen"; exit 1; }
+	@command -v swiftlint >/dev/null || { echo "swiftlint not found: brew install swiftlint"; exit 1; }
 	@command -v xcodebuild >/dev/null || { echo "Xcode not found: install it from the App Store"; exit 1; }
 	swift package resolve --package-path $(CORE_DIR)
 	swift package resolve --package-path $(BACKEND_DIR)
@@ -49,6 +50,13 @@ test-backend: ## Test the Vapor backend
 
 test-app: generate ## Test the macOS app
 	$(XCODEBUILD) test
+
+.PHONY: lint lint-fix
+lint: ## Run SwiftLint in strict mode
+	swiftlint lint --strict --quiet
+
+lint-fix: ## Auto-correct SwiftLint violations where possible
+	swiftlint lint --fix --quiet
 
 .PHONY: run-backend open
 run-backend: ## Run the backend on http://localhost:8080
