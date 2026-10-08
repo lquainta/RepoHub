@@ -69,15 +69,29 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.lquainta.RepoHubTests
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/RepoHub.app/Contents/MacOS/RepoHub"
         BUNDLE_LOADER: "$(TEST_HOST)"
+  RepoHubUITests:
+    type: bundle.ui-testing
+    platform: macOS
+    sources:
+      - Tests/RepoHubUITests
+    dependencies:
+      - target: RepoHub
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.lquainta.RepoHubUITests
+        TEST_TARGET_NAME: RepoHub
 schemes:
   RepoHub:
     build:
       targets:
         RepoHub: all
         RepoHubTests: [test]
+        RepoHubUITests: [test]
     test:
       gatherCoverageData: true
       coverageTargets:
         - RepoHub
       targets:
         - RepoHubTests
+        - RepoHubUITests
