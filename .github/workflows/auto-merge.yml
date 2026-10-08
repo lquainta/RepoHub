@@ -1,0 +1,57 @@
+# Opt-in auto-merge. GitHub squash-merges the PR once every required status
+# check passes and all review conversations are resolved.
+#
+# - Human/AI PRs: review first, then add the `automerge` label. Removing the
+#   label cancels auto-merge.
+# - Dependabot PRs: patch and minor updates are enabled automatically; major
+#   updates need a manual review.
+#
+# Note: merges made with GITHUB_TOKEN do not trigger `push` workflows on main.
+# Switch to a GitHub App token before continuous deployment relies on them (#43).
+name: Auto-merge
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, labeled, unlabeled]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  label:
+    name: Toggle auto-merge from label
+    runs-on: ubuntu-latest
+    if: >-
+      (github.event.action == 'labeled' || github.event.action == 'unlabeled')
+      && github.event.label.name == 'automerge'
+      && github.event.pull_request.head.repo.full_name == github.repository
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      PR_URL: ${{ github.event.pull_request.html_url }}
+    steps:
+      - name: Enable auto-merge
+        if: github.event.action == 'labeled'
+        run: gh pr merge --auto --squash "$PR_URL"
+      - name: Disable auto-merge
+        if: github.event.action == 'unlabeled'
+        run: gh pr merge --disable-auto "$PR_URL"
+
+  dependabot:
+    name: Auto-merge Dependabot patch/minor updates
+    runs-on: ubuntu-latest
+    if: >-
+      github.event.pull_request.user.login == 'dependabot[bot]'
+      && (github.event.action == 'opened' || github.event.action == 'reopened' || github.event.action == 'synchronize')
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      PR_URL: ${{ github.event.pull_request.html_url }}
+    steps:
+      - name: Fetch Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Enable auto-merge
+        if: steps.metadata.outputs.update-type != 'version-update:semver-major'
+        run: gh pr merge --auto --squash "$PR_URL"
