@@ -1,0 +1,5 @@
+# Default owner for everything in the repository
+*                   @lquainta
+
+# Changes to workflows, rulesets, and repository settings need extra care
+/.github/           @lquainta
