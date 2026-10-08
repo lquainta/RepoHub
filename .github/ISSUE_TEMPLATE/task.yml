@@ -1,0 +1,31 @@
+name: Engineering task
+description: Tooling, CI/CD, tests, documentation, or other non-feature work
+title: "chore: "
+labels: ["type: chore"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What needs to be done and why?
+    validations:
+      required: true
+  - type: textarea
+    id: tasks
+    attributes:
+      label: Tasks
+      value: |
+        - [ ] 
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      value: |
+        - [ ] 
+    validations:
+      required: true
+  - type: input
+    id: epic
+    attributes:
+      label: Parent epic
+      placeholder: "#4"

@@ -1,0 +1,58 @@
+name: Bug report
+description: Something in RepoHub is not working correctly
+title: "fix: "
+labels: ["type: bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What happened, and what did you expect to happen instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Add folder ~/dev
+        2. Click Fetch All
+        3. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - macOS app
+        - RepoHubCore
+        - Backend
+        - CI / infrastructure
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: RepoHub version or commit SHA
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      placeholder: macOS 27.0
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: Remove any tokens, emails, or private paths before pasting.
+      render: shell
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: How will we know this is fixed?
+      value: |
+        - [ ] 
+    validations:
+      required: true
