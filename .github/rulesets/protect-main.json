@@ -78,6 +78,10 @@
           {
             "context": "Backend (Linux)",
             "integration_id": 15368
+          },
+          {
+            "context": "App UI tests (macOS)",
+            "integration_id": 15368
           }
         ]
       }
