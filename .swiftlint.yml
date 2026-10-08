@@ -1,0 +1,89 @@
+# SwiftLint configuration. Formatting is owned by swift-format (.swift-format);
+# rules that overlap with it are disabled here to avoid conflicting fixes.
+
+included:
+  - App/Sources
+  - App/Tests
+  - Packages/RepoHubCore/Sources
+  - Packages/RepoHubCore/Tests
+  - Backend/Sources
+  - Backend/Tests
+
+excluded:
+  - "**/.build"
+  - App/RepoHub.xcodeproj
+
+disabled_rules:
+  # Handled by swift-format
+  - trailing_comma
+  - opening_brace
+  - vertical_parameter_alignment
+  - comma
+
+opt_in_rules:
+  - closure_end_indentation
+  - contains_over_first_not_nil
+  - discouraged_optional_boolean
+  - empty_count
+  - empty_string
+  - explicit_init
+  - fatal_error_message
+  - first_where
+  - force_unwrapping
+  - implicitly_unwrapped_optional
+  - last_where
+  - legacy_multiple
+  - missing_docs
+  - modifier_order
+  - prefer_self_type_over_type_of_self
+  - redundant_nil_coalescing
+  - sorted_first_last
+  - toggle_bool
+  - unavailable_function
+  - unneeded_parentheses_in_closure_argument
+  - unowned_variable_capture
+  - yoda_condition
+
+analyzer_rules:
+  - unused_declaration
+  - unused_import
+
+line_length:
+  warning: 120
+  error: 160
+  ignores_urls: true
+  ignores_comments: false
+
+type_body_length:
+  warning: 300
+  error: 500
+
+file_length:
+  warning: 500
+  error: 800
+
+function_body_length:
+  warning: 50
+  error: 100
+
+identifier_name:
+  excluded:
+    - id
+    - db
+    - ok
+
+missing_docs:
+  warning:
+    - open
+    - public
+
+# Debug output must go through a Logger, not print().
+custom_rules:
+  no_print:
+    name: "No print statements"
+    regex: "^\\s*(print|debugPrint|dump)\\("
+    match_kinds: identifier
+    message: "Use Logger (os.Logger in the app, swift-log in the backend) instead of print()."
+    severity: error
+
+reporter: xcode

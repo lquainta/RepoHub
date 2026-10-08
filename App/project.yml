@@ -44,6 +44,18 @@ targets:
         # Sandbox would block for child processes; it is not distributed via
         # the Mac App Store, so the sandbox is disabled.
         ENABLE_APP_SANDBOX: NO
+        # The SwiftLint build phase needs to read every source file.
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
+    postCompileScripts:
+      - name: SwiftLint
+        basedOnDependencyAnalysis: false
+        script: |
+          export PATH="$PATH:/opt/homebrew/bin:/usr/local/bin"
+          if command -v swiftlint >/dev/null; then
+            cd "$SRCROOT/.." && swiftlint lint --quiet App/Sources App/Tests
+          else
+            echo "warning: SwiftLint not installed (brew install swiftlint)"
+          fi
   RepoHubTests:
     type: bundle.unit-test
     platform: macOS
