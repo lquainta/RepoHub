@@ -7,6 +7,17 @@
 3. **Every variable is documented in [`.env.sample`](../.env.sample).** The `Env sample` CI check fails if the backend reads a variable that isn't listed there.
 4. **Fail fast.** `AppConfig` is loaded in `configure(_:)` before anything else. A missing or malformed variable throws a `ConfigurationError` that names the variable, and the process exits before serving traffic.
 
+## Secret scanning
+
+| Layer | What it does |
+| --- | --- |
+| GitHub push protection | Rejects pushes containing known token formats before they reach GitHub |
+| GitHub secret scanning | Alerts on secrets anywhere in the repository |
+| Gitleaks (`Secret scan` workflow) | Scans full git history on every PR, every push to `main`, and weekly. Required check |
+| `make secrets-scan` | Same scan locally, on history and the working tree, including untracked files |
+
+If a secret is ever committed, **rotate it immediately**. Removing it from history doesn't make it safe again.
+
 ## Local development
 
 ```sh

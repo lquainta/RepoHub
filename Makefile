@@ -19,6 +19,7 @@ help: ## Show available targets
 .PHONY: bootstrap
 bootstrap: ## Check required tools, resolve dependencies, and generate the Xcode project
 	@command -v xcodegen >/dev/null || { echo "xcodegen not found: brew install xcodegen"; exit 1; }
+	@command -v gitleaks >/dev/null || { echo "gitleaks not found: brew install gitleaks"; exit 1; }
 	@command -v swiftlint >/dev/null || { echo "swiftlint not found: brew install swiftlint"; exit 1; }
 	@command -v xcodebuild >/dev/null || { echo "Xcode not found: install it from the App Store"; exit 1; }
 	swift package resolve --package-path $(CORE_DIR)
@@ -62,6 +63,11 @@ lint: ## Run SwiftLint in strict mode
 
 lint-fix: ## Auto-correct SwiftLint violations where possible
 	swiftlint lint --fix --quiet
+
+.PHONY: secrets-scan
+secrets-scan: ## Scan git history and the working tree for secrets with Gitleaks
+	gitleaks git --config .gitleaks.toml --redact --no-banner
+	gitleaks dir . --config .gitleaks.toml --redact --no-banner
 
 .PHONY: check-env
 check-env: ## Verify every backend environment variable is documented in .env.sample
