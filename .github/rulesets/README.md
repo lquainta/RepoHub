@@ -12,8 +12,14 @@ Branch protection for this repository is kept under version control here so chan
 | --- | --- |
 | `Conventional PR title` | `pr-checks.yml` |
 | `Linked issue` | `pr-checks.yml` |
+| `SwiftLint` | `lint.yml` |
+| `swift-format` | `lint.yml` |
+| `Core (macOS)` | `ci.yml` |
+| `Core (Linux)` | `ci.yml` |
+| `App (macOS)` | `ci.yml` |
+| `Backend (Linux)` | `ci.yml` |
 
-CI jobs are added here as they land (see #38). `integration_id` 15368 is the GitHub Actions app, so only Actions can satisfy these checks.
+`integration_id` 15368 is the GitHub Actions app, so only Actions can satisfy these checks.
 
 ## Applying a change
 
