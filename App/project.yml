@@ -1,0 +1,71 @@
+name: RepoHub
+options:
+  bundleIdPrefix: com.lquainta
+  deploymentTarget:
+    macOS: "15.0"
+  createIntermediateGroups: true
+  developmentLanguage: en
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    # Ad-hoc signing: distributed outside the Mac App Store without a
+    # Developer ID (see #44).
+    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGN_STYLE: Manual
+    DEVELOPMENT_TEAM: ""
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    SWIFT_EMIT_LOC_STRINGS: YES
+    LOCALIZATION_PREFERS_STRING_CATALOGS: YES
+packages:
+  RepoHubCore:
+    path: ../Packages/RepoHubCore
+targets:
+  RepoHub:
+    type: application
+    platform: macOS
+    sources:
+      - Sources/RepoHub
+    dependencies:
+      - package: RepoHubCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.lquainta.RepoHub
+        PRODUCT_NAME: RepoHub
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: RepoHub
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.developer-tools
+        INFOPLIST_KEY_NSHumanReadableCopyright: "Copyright © 2026 Landon Quaintance. MIT License."
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        ENABLE_HARDENED_RUNTIME: YES
+        # The app runs `git` against arbitrary user folders, which the App
+        # Sandbox would block for child processes; it is not distributed via
+        # the Mac App Store, so the sandbox is disabled.
+        ENABLE_APP_SANDBOX: NO
+  RepoHubTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - Tests/RepoHubTests
+    dependencies:
+      - target: RepoHub
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.lquainta.RepoHubTests
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/RepoHub.app/Contents/MacOS/RepoHub"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+schemes:
+  RepoHub:
+    build:
+      targets:
+        RepoHub: all
+        RepoHubTests: [test]
+    test:
+      gatherCoverageData: true
+      coverageTargets:
+        - RepoHub
+      targets:
+        - RepoHubTests
