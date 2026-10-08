@@ -1,0 +1,16 @@
+# Gitleaks configuration: the built-in ruleset plus project allowlists.
+title = "RepoHub gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Documented placeholders and build output"
+paths = [
+  '''^\.env\.sample$''',
+  # Build output and resolved dependencies (git-ignored, never committed)
+  '''(^|/)\.build/''',
+  '''(^|/)\.swiftpm/''',
+  '''(^|/)DerivedData/''',
+  '''\.xcodeproj/''',
+]

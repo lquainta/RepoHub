@@ -86,6 +86,10 @@
           {
             "context": "Env sample",
             "integration_id": 15368
+          },
+          {
+            "context": "Gitleaks",
+            "integration_id": 15368
           }
         ]
       }
