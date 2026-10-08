@@ -35,3 +35,11 @@ jobs:
         run: command -v make || (apt-get update -qq && apt-get install -y -qq make)
       - name: Check formatting
         run: make format-check
+
+  env-sample:
+    name: Env sample
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Check .env.sample documents every variable
+        run: make check-env

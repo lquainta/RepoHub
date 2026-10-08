@@ -14,6 +14,7 @@ Branch protection for this repository is kept under version control here so chan
 | `Linked issue` | `pr-checks.yml` |
 | `SwiftLint` | `lint.yml` |
 | `swift-format` | `lint.yml` |
+| `Env sample` | `lint.yml` |
 | `Core (macOS)` | `ci.yml` |
 | `Core (Linux)` | `ci.yml` |
 | `App (macOS)` | `ci.yml` |
