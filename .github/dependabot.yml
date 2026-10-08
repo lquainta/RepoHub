@@ -1,0 +1,43 @@
+# Automated dependency updates. Commit prefixes keep Dependabot PR titles valid
+# Conventional Commits so they pass the "Conventional PR title" check, and
+# patch/minor updates are auto-merged once CI is green (auto-merge.yml).
+version: 2
+
+updates:
+  - package-ecosystem: swift
+    directory: /Backend
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/Boise
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore
+      include: scope
+    labels:
+      - "type: chore"
+      - "component: backend"
+    groups:
+      swift-minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/Boise
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: ci
+      include: scope
+    labels:
+      - "type: ci/cd"
+      - "component: infra"
+    groups:
+      actions-minor-and-patch:
+        update-types: [minor, patch]
+
+  # The docker ecosystem is added with the backend Dockerfile in #39.
