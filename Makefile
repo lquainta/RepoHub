@@ -41,8 +41,8 @@ build-backend: ## Build the Vapor backend
 build-app: generate ## Build the macOS app
 	$(XCODEBUILD) build
 
-.PHONY: test test-core test-backend test-app
-test: test-core test-backend test-app ## Run every test suite
+.PHONY: test test-core test-backend test-app test-ui
+test: test-core test-backend test-app ## Run all unit and integration tests (UI tests: make test-ui)
 
 test-core: ## Test the RepoHubCore package
 	swift test --package-path $(CORE_DIR)
@@ -50,8 +50,11 @@ test-core: ## Test the RepoHubCore package
 test-backend: ## Test the Vapor backend
 	swift test --package-path $(BACKEND_DIR)
 
-test-app: generate ## Test the macOS app
-	$(XCODEBUILD) test
+test-app: generate ## Run the macOS app's unit tests
+	$(XCODEBUILD) test -skip-testing:RepoHubUITests
+
+test-ui: generate ## Run the macOS app's UI tests (launches the app and drives it)
+	$(XCODEBUILD) test -only-testing:RepoHubUITests
 
 .PHONY: lint lint-fix
 lint: ## Run SwiftLint in strict mode
