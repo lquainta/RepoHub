@@ -54,6 +54,30 @@
           {
             "context": "Linked issue",
             "integration_id": 15368
+          },
+          {
+            "context": "SwiftLint",
+            "integration_id": 15368
+          },
+          {
+            "context": "swift-format",
+            "integration_id": 15368
+          },
+          {
+            "context": "Core (macOS)",
+            "integration_id": 15368
+          },
+          {
+            "context": "Core (Linux)",
+            "integration_id": 15368
+          },
+          {
+            "context": "App (macOS)",
+            "integration_id": 15368
+          },
+          {
+            "context": "Backend (Linux)",
+            "integration_id": 15368
           }
         ]
       }
