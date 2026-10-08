@@ -22,3 +22,16 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Run SwiftLint
         run: swiftlint lint --strict --reporter github-actions-logging
+
+  swift-format:
+    name: swift-format
+    runs-on: ubuntu-latest
+    container:
+      # Keep in sync with the local toolchain; formatter output can differ between versions.
+      image: swift:6.4-noble
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install make
+        run: command -v make || (apt-get update -qq && apt-get install -y -qq make)
+      - name: Check formatting
+        run: make format-check

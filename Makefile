@@ -6,6 +6,8 @@ APP_DIR     := App
 PROJECT     := $(APP_DIR)/RepoHub.xcodeproj
 SCHEME      := RepoHub
 DESTINATION := platform=macOS,arch=$(shell uname -m)
+FORMAT_PATHS := App/Sources App/Tests $(CORE_DIR)/Package.swift $(CORE_DIR)/Sources $(CORE_DIR)/Tests \
+                $(BACKEND_DIR)/Package.swift $(BACKEND_DIR)/Sources $(BACKEND_DIR)/Tests
 XCODEBUILD  := xcodebuild -project $(PROJECT) -scheme $(SCHEME) -destination '$(DESTINATION)' -quiet
 
 .DEFAULT_GOAL := help
@@ -57,6 +59,13 @@ lint: ## Run SwiftLint in strict mode
 
 lint-fix: ## Auto-correct SwiftLint violations where possible
 	swiftlint lint --fix --quiet
+
+.PHONY: format format-check
+format: ## Format all Swift sources in place with swift-format
+	swift format --in-place --recursive --parallel $(FORMAT_PATHS)
+
+format-check: ## Fail if any Swift source is not formatted
+	swift format lint --strict --recursive --parallel $(FORMAT_PATHS)
 
 .PHONY: run-backend open
 run-backend: ## Run the backend on http://localhost:8080
