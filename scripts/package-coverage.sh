@@ -13,18 +13,19 @@ swift test --package-path "$package" --enable-code-coverage
 
 bin="$(swift build --package-path "$package" --show-bin-path)"
 profdata="$bin/codecov/default.profdata"
-# The test bundle is named <Target>.xctest or <Package>PackageTests.xctest depending on the build system.
-bundle="$(find "$bin" -maxdepth 1 -name '*.xctest' | head -n 1)"
-if [ -z "$bundle" ]; then
-    echo "No .xctest bundle found in $bin" >&2
-    exit 1
-fi
+# Locate the instrumented test binary. macOS: <Target>Tests.xctest bundle.
+# Linux (Swift 6.4 build system): <Target>Tests.so, run by <Target>Tests-test-runner.
 if [ "$(uname)" = "Darwin" ]; then
+    bundle="$(find "$bin" -maxdepth 1 -name '*.xctest' | head -n 1)"
     binary="$bundle/Contents/MacOS/$(basename "$bundle" .xctest)"
     llvm_cov=(xcrun llvm-cov)
 else
-    binary="$bundle"
+    binary="$(find "$bin" -maxdepth 1 \( -name '*Tests.so' -o -name '*.xctest' \) -type f | head -n 1)"
     llvm_cov=(llvm-cov)
+fi
+if [ ! -f "$binary" ]; then
+    echo "No test binary found in $bin" >&2
+    exit 1
 fi
 
 # Exclude dependencies, tests, and manifests. A package outside Packages/
