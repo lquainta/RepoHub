@@ -30,14 +30,14 @@ struct RepoHubApp: App {
         .modelContainer(container)
     }
 
-    /// Opens the on-disk store, or an in-memory store when launched with
-    /// `-UITestInMemoryStore` (UI tests must never touch the user's data).
+    /// Opens the on-disk store, or an in-memory store for UI tests (see
+    /// ``UITestSupport``), which must never touch the user's data.
     /// Falls back to memory if the on-disk store can't be opened, so the app
     /// still launches; the failure is logged.
     private static func makeContainer(arguments: [String]) -> ModelContainer {
         let logger = Logger(subsystem: "com.lquainta.RepoHub", category: "Persistence")
         do {
-            if arguments.contains("-UITestInMemoryStore") {
+            if UITestSupport.usesInMemoryStore(arguments) {
                 return try Persistence.makeInMemoryContainer()
             }
             return try Persistence.makeContainer()
@@ -51,10 +51,14 @@ struct RepoHubApp: App {
         }
     }
 
-    /// Folders passed with `-UITestScanFolder <path>`, scanned at launch by UI tests.
+    /// The UI test fixture folder, if one was requested, scanned at launch.
     private static func launchFolders(arguments: [String]) -> [URL] {
-        zip(arguments, arguments.dropFirst())
-            .filter { $0.0 == "-UITestScanFolder" }
-            .map { URL(fileURLWithPath: $0.1, isDirectory: true) }
+        do {
+            return try UITestSupport.makeFixtureFolder(arguments).map { [$0] } ?? []
+        } catch {
+            Logger(subsystem: "com.lquainta.RepoHub", category: "UITest")
+                .error("Could not create UI test fixture: \(error.localizedDescription, privacy: .public)")
+            return []
+        }
     }
 }
