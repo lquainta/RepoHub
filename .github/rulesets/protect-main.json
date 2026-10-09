@@ -94,6 +94,14 @@
           {
             "context": "DevContainer",
             "integration_id": 15368
+          },
+          {
+            "context": "Analyze (swift)",
+            "integration_id": 15368
+          },
+          {
+            "context": "Analyze (actions)",
+            "integration_id": 15368
           }
         ]
       }
