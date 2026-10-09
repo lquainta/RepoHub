@@ -17,6 +17,8 @@ let package = Package(
         .testTarget(
             name: "RepoHubCoreTests",
             dependencies: ["RepoHubCore"],
+            exclude: ["Fixtures/generate-fixtures.sh"],
+            resources: [.copy("Fixtures/git-output")],
             swiftSettings: swiftSettings
         ),
     ]
