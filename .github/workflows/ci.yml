@@ -97,6 +97,10 @@ jobs:
   devcontainer:
     name: DevContainer
     runs-on: ubuntu-latest
+    env:
+      # Compose's bake builder rejects the devcontainer CLI's generated
+      # Dockerfile (outside the build context) without an fs.read entitlement.
+      COMPOSE_BAKE: "false"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build DevContainer and run checks inside it
