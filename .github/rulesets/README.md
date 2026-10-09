@@ -21,6 +21,7 @@ Branch protection for this repository is kept under version control here so chan
 | `App (macOS)` | `ci.yml` |
 | `App UI tests (macOS)` | `ci.yml` |
 | `Backend (Linux)` | `ci.yml` |
+| `DevContainer` | `ci.yml` |
 
 `integration_id` 15368 is the GitHub Actions app, so only Actions can satisfy these checks.
 
