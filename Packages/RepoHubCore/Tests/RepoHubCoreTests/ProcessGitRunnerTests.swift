@@ -64,6 +64,31 @@ struct ProcessGitRunnerTests {
         #expect(elapsed < .seconds(5))
     }
 
+    @Test("Timeouts stay prompt while more commands are running than there are CPUs")
+    func timeoutUnderLoad() async throws {
+        // Regression for #105: blocking work on libdispatch's global pool (capped
+        // near the CPU count on Linux) let busy commands starve others' readers.
+        let slowRunner = ProcessGitRunner(executableURL: sleep, timeout: .seconds(30))
+        let busy = (0..<(ProcessInfo.processInfo.activeProcessorCount * 2 + 2)).map { _ in
+            Task { try await slowRunner.run(["10"], in: FileManager.default.temporaryDirectory) }
+        }
+        defer {
+            for task in busy {
+                task.cancel()
+            }
+        }
+        try await Task.sleep(for: .milliseconds(300))
+
+        let runner = ProcessGitRunner(executableURL: sleep, timeout: .milliseconds(200))
+        let clock = ContinuousClock()
+        let elapsed = await clock.measure {
+            await #expect(throws: GitError.timedOut(command: "sleep 10")) {
+                try await runner.run(["10"], in: FileManager.default.temporaryDirectory)
+            }
+        }
+        #expect(elapsed < .seconds(5))
+    }
+
     @Test("Non-zero exit includes stderr")
     func commandFailure() async throws {
         let repo = try await TemporaryRepository.make()
