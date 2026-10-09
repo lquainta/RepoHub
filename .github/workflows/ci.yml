@@ -31,7 +31,9 @@ jobs:
       - name: Test with coverage
         run: scripts/package-coverage.sh Packages/RepoHubCore coverage/core.lcov
       - name: Coverage summary
-        run: echo "**Core line coverage:** $(awk -F: '/^LF:/{f+=$2} /^LH:/{h+=$2} END{printf "%.1f%%", h*100/f}' coverage/core.lcov)" >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          percent=$(awk -F: '/^LF:/ {f += $2} /^LH:/ {h += $2} END {printf "%.1f%%", h * 100 / f}' coverage/core.lcov)
+          echo "**Core line coverage:** $percent" >> "$GITHUB_STEP_SUMMARY"
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
@@ -73,7 +75,9 @@ jobs:
       - name: Export coverage
         run: scripts/app-coverage.sh build/DerivedData coverage/app.lcov
       - name: Coverage summary
-        run: echo "**App line coverage:** $(awk -F: '/^LF:/{f+=$2} /^LH:/{h+=$2} END{printf "%.1f%%", h*100/f}' coverage/app.lcov)" >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          percent=$(awk -F: '/^LF:/ {f += $2} /^LH:/ {h += $2} END {printf "%.1f%%", h * 100 / f}' coverage/app.lcov)
+          echo "**App line coverage:** $percent" >> "$GITHUB_STEP_SUMMARY"
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
@@ -113,8 +117,14 @@ jobs:
         if: failure()
         run: |
           log show --last 15m --style compact --predicate 'process == "RepoHub"' | tail -n 150 || true
-          ls -1 ~/Library/Logs/DiagnosticReports/ 2>/dev/null | grep -i repohub || echo "No RepoHub crash reports"
-          for report in ~/Library/Logs/DiagnosticReports/RepoHub*; do [ -f "$report" ] && head -n 60 "$report"; done || true
+          found=false
+          for report in ~/Library/Logs/DiagnosticReports/RepoHub*; do
+            [ -f "$report" ] || continue
+            found=true
+            echo "== $report"
+            head -n 60 "$report"
+          done
+          $found || echo "No RepoHub crash reports"
       - name: Upload test results
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -138,7 +148,9 @@ jobs:
       - name: Test with coverage
         run: scripts/package-coverage.sh Backend coverage/backend.lcov
       - name: Coverage summary
-        run: echo "**Backend line coverage:** $(awk -F: '/^LF:/{f+=$2} /^LH:/{h+=$2} END{printf "%.1f%%", h*100/f}' coverage/backend.lcov)" >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          percent=$(awk -F: '/^LF:/ {f += $2} /^LH:/ {h += $2} END {printf "%.1f%%", h * 100 / f}' coverage/backend.lcov)
+          echo "**Backend line coverage:** $percent" >> "$GITHUB_STEP_SUMMARY"
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
