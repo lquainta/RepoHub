@@ -28,8 +28,17 @@ jobs:
           key: core-macos-${{ hashFiles('Packages/RepoHubCore/Package.swift', 'Packages/RepoHubCore/Package.resolved') }}
       - name: Show toolchain
         run: xcodebuild -version && swift --version
-      - name: Test
-        run: make test-core
+      - name: Test with coverage
+        run: scripts/package-coverage.sh Packages/RepoHubCore coverage/core.lcov
+      - name: Coverage summary
+        run: echo "**Core line coverage:** $(awk -F: '/^LF:/{f+=$2} /^LH:/{h+=$2} END{printf "%.1f%%", h*100/f}' coverage/core.lcov)" >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          files: coverage/core.lcov
+          flags: core
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
 
   core-linux:
     name: Core (Linux)
@@ -60,7 +69,18 @@ jobs:
       - name: Show toolchain
         run: xcodebuild -version && xcodegen --version
       - name: Build and test
-        run: make test-app RESULT_BUNDLE=build/app-unit.xcresult
+        run: make test-app RESULT_BUNDLE=build/app-unit.xcresult DERIVED_DATA=build/DerivedData
+      - name: Export coverage
+        run: scripts/app-coverage.sh build/DerivedData coverage/app.lcov
+      - name: Coverage summary
+        run: echo "**App line coverage:** $(awk -F: '/^LF:/{f+=$2} /^LH:/{h+=$2} END{printf "%.1f%%", h*100/f}' coverage/app.lcov)" >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          files: coverage/app.lcov
+          flags: app
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
       - name: Report test failures
         if: failure()
         run: scripts/xcresult-failures.sh build/app-unit.xcresult
@@ -115,10 +135,17 @@ jobs:
           path: Backend/.build
           key: backend-linux-${{ hashFiles('Backend/Package.resolved') }}
           restore-keys: backend-linux-
-      - name: Build
-        run: swift build --package-path Backend --build-tests
-      - name: Test
-        run: swift test --package-path Backend --skip-build
+      - name: Test with coverage
+        run: scripts/package-coverage.sh Backend coverage/backend.lcov
+      - name: Coverage summary
+        run: echo "**Backend line coverage:** $(awk -F: '/^LF:/{f+=$2} /^LH:/{h+=$2} END{printf "%.1f%%", h*100/f}' coverage/backend.lcov)" >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          files: coverage/backend.lcov
+          flags: backend
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
 
   devcontainer:
     name: DevContainer
