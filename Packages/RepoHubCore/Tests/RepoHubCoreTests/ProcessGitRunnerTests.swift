@@ -64,6 +64,29 @@ struct ProcessGitRunnerTests {
         #expect(elapsed < .seconds(5))
     }
 
+    @Test("Many long-running commands do not starve other commands")
+    func longRunningCommandsDoNotStarveThePool() async throws {
+        // Regression test for #105: blocking on a capped thread pool (libdispatch
+        // on Linux) made every other command wait for a free worker. Swift
+        // concurrency shares that pool there, so the stall also delays this
+        // test's own awaits: measure from before the slow commands start.
+        let repo = try await TemporaryRepository.make()
+        defer { repo.remove() }
+        let slowRunner = ProcessGitRunner(executableURL: sleep, timeout: .seconds(30))
+        let clock = ContinuousClock()
+        let start = clock.now
+        let slow = (0..<16).map { _ in
+            Task { try await slowRunner.run(["10"], in: FileManager.default.temporaryDirectory) }
+        }
+        defer {
+            for task in slow { task.cancel() }
+        }
+        try await Task.sleep(for: .milliseconds(200))
+
+        _ = try await GitService(runner: TemporaryRepository.isolatedRunner).status(of: repo.url)
+        #expect(clock.now - start < .seconds(3))
+    }
+
     @Test("Non-zero exit includes stderr")
     func commandFailure() async throws {
         let repo = try await TemporaryRepository.make()

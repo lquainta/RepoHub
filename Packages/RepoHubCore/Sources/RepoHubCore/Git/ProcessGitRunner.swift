@@ -115,7 +115,7 @@ private final class ChildProcess: @unchecked Sendable {
     func run() async throws -> Result {
         try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
-                DispatchQueue.global(qos: .userInitiated).async {
+                startDedicatedThread(named: "RepoHub git runner") {
                     continuation.resume(with: Swift.Result { try self.runBlocking() })
                 }
             }
@@ -133,8 +133,8 @@ private final class ChildProcess: @unchecked Sendable {
         }
     }
 
-    /// Starts the process and blocks until it exits. Must not run on the
-    /// cooperative thread pool.
+    /// Starts the process and blocks until it exits. Must run on a dedicated
+    /// thread (see `startDedicatedThread(named:_:)`).
     private func runBlocking() throws -> Result {
         let stdoutPipe = Pipe()
         let stderrPipe = Pipe()
@@ -147,14 +147,13 @@ private final class ChildProcess: @unchecked Sendable {
 
         // Drain stderr concurrently so a full pipe buffer can't deadlock the child.
         let stderrReader = PipeReader(handle: stderrPipe.fileHandleForReading)
-        let readers = DispatchGroup()
-        readers.enter()
-        DispatchQueue.global(qos: .userInitiated).async {
+        let stderrDone = DispatchSemaphore(value: 0)
+        startDedicatedThread(named: "RepoHub git stderr reader") {
             stderrReader.readToEnd()
-            readers.leave()
+            stderrDone.signal()
         }
         let stdout = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
-        readers.wait()
+        stderrDone.wait()
         process.waitUntilExit()
 
         if lock.withLock({ isCancelled }) {
@@ -164,12 +163,28 @@ private final class ChildProcess: @unchecked Sendable {
     }
 }
 
+/// Runs `body` on a new thread that exits when `body` returns.
+///
+/// Blocking work (waiting for a child to exit, reading its pipes to EOF) must
+/// not run on Swift's cooperative pool or on `DispatchQueue.global()`. On Linux,
+/// libdispatch caps the global pool at roughly the CPU count and adds a thread
+/// only about once per second while every worker is blocked, so a few
+/// long-running commands can stall every other command, timeout, and
+/// cancellation for seconds.
+private func startDedicatedThread(named name: String, _ body: @escaping @Sendable () -> Void) {
+    let thread = Thread(block: body)
+    thread.name = name
+    thread.qualityOfService = .userInitiated
+    thread.start()
+}
+
 /// Runs `body` with SIGTERM and SIGINT unblocked on the current thread.
 ///
-/// A child process inherits its launching thread's signal mask. On Linux,
-/// libdispatch worker threads block most signals, so without this a child
-/// launched from a dispatch queue ignores `terminate()` and timeouts or
-/// cancellation would wait for it to finish on its own.
+/// A child process inherits its launching thread's signal mask, and a new
+/// thread inherits its creator's. On Linux, libdispatch worker threads (which
+/// also run Swift concurrency tasks) block most signals, so without this a
+/// child would ignore `terminate()` and timeouts or cancellation would wait for
+/// it to finish on its own.
 private func withTerminationSignalsUnblocked<T>(_ body: () throws -> T) rethrows -> T {
     #if canImport(Glibc)
         var signals = sigset_t()
