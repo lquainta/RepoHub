@@ -13,11 +13,16 @@ final class LaunchTests: XCTestCase {
 
     /// Launches the app with an in-memory store and window restoration disabled.
     ///
-    /// `-ApplePersistenceIgnoreState YES` stops macOS from restoring the previous
-    /// test's (killed) session, which can otherwise relaunch the app with no window.
-    private func launchApp(_ extraArguments: [String] = []) -> XCUIApplication {
+    /// Test settings go in the environment, not launch arguments (see
+    /// `UITestSupport`). `-ApplePersistenceIgnoreState YES` stops macOS from
+    /// restoring the previous test's killed session.
+    private func launchApp(fixtureRepositories: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["-ApplePersistenceIgnoreState", "YES", "-UITestInMemoryStore"] + extraArguments
+        app.launchArguments = ["-ApplePersistenceIgnoreState", "YES"]
+        app.launchEnvironment["REPOHUB_UI_TEST_IN_MEMORY_STORE"] = "1"
+        if !fixtureRepositories.isEmpty {
+            app.launchEnvironment["REPOHUB_UI_TEST_FIXTURE_REPOSITORIES"] = fixtureRepositories.joined(separator: ",")
+        }
         app.launch()
         return app
     }
@@ -30,8 +35,8 @@ final class LaunchTests: XCTestCase {
     }
 
     func testScanningAFolderListsItsRepositories() {
-        let app = launchApp([
-            "-UITestFixtureRepositories", "alpha/.git,nested/beta/.git,node_modules/ignored/.git,plain-folder",
+        let app = launchApp(fixtureRepositories: [
+            "alpha/.git", "nested/beta/.git", "node_modules/ignored/.git", "plain-folder",
         ])
         XCTAssertTrue(app.windows.firstMatch.waitForExistence(timeout: 10))
 

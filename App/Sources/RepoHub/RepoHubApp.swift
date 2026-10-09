@@ -10,11 +10,11 @@ struct RepoHubApp: App {
     private let launchFolders: [URL]
 
     init() {
-        let arguments = ProcessInfo.processInfo.arguments
-        let container = Self.makeContainer(arguments: arguments)
+        let environment = ProcessInfo.processInfo.environment
+        let container = Self.makeContainer(environment: environment)
         self.container = container
         _library = State(initialValue: LibraryViewModel(store: LibraryStore(container: container)))
-        launchFolders = Self.launchFolders(arguments: arguments)
+        launchFolders = Self.launchFolders(environment: environment)
     }
 
     var body: some Scene {
@@ -34,10 +34,10 @@ struct RepoHubApp: App {
     /// ``UITestSupport``), which must never touch the user's data.
     /// Falls back to memory if the on-disk store can't be opened, so the app
     /// still launches; the failure is logged.
-    private static func makeContainer(arguments: [String]) -> ModelContainer {
+    private static func makeContainer(environment: [String: String]) -> ModelContainer {
         let logger = Logger(subsystem: "com.lquainta.RepoHub", category: "Persistence")
         do {
-            if UITestSupport.usesInMemoryStore(arguments) {
+            if UITestSupport.usesInMemoryStore(environment) {
                 return try Persistence.makeInMemoryContainer()
             }
             return try Persistence.makeContainer()
@@ -52,9 +52,9 @@ struct RepoHubApp: App {
     }
 
     /// The UI test fixture folder, if one was requested, scanned at launch.
-    private static func launchFolders(arguments: [String]) -> [URL] {
+    private static func launchFolders(environment: [String: String]) -> [URL] {
         do {
-            return try UITestSupport.makeFixtureFolder(arguments).map { [$0] } ?? []
+            return try UITestSupport.makeFixtureFolder(environment).map { [$0] } ?? []
         } catch {
             Logger(subsystem: "com.lquainta.RepoHub", category: "UITest")
                 .error("Could not create UI test fixture: \(error.localizedDescription, privacy: .public)")
