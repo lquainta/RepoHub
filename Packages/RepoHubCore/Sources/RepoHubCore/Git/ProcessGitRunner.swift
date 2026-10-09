@@ -2,6 +2,8 @@ import Foundation
 
 #if canImport(Glibc)
     import Glibc
+#elseif canImport(Darwin)
+    import Darwin
 #endif
 
 /// Runs the `git` executable as a child process.
@@ -100,6 +102,7 @@ private final class ChildProcess: @unchecked Sendable {
         let stderr: Data
     }
 
+    private static let launchLock = NSLock()
     private let process = Process()
     private let lock = NSLock()
     private var isCancelled = false
@@ -136,24 +139,32 @@ private final class ChildProcess: @unchecked Sendable {
     /// Starts the process and blocks until it exits. Must not run on the
     /// cooperative thread pool.
     private func runBlocking() throws -> Result {
-        let stdoutPipe = Pipe()
-        let stderrPipe = Pipe()
-        try lock.withLock {
-            guard !isCancelled else { throw CancellationError() }
-            process.standardOutput = stdoutPipe
-            process.standardError = stderrPipe
-            try withTerminationSignalsUnblocked { try process.run() }
+        // Pipes are created and the child launched under one process-wide lock,
+        // so no other runner can spawn a child between pipe() and fcntl().
+        let (stdoutPipe, stderrPipe) = try Self.launchLock.withLock {
+            let stdoutPipe = try ClosingPipe()
+            let stderrPipe = try ClosingPipe()
+            try lock.withLock {
+                guard !isCancelled else { throw CancellationError() }
+                process.standardOutput = stdoutPipe.writer
+                process.standardError = stderrPipe.writer
+                try withTerminationSignalsUnblocked { try process.run() }
+            }
+            return (stdoutPipe, stderrPipe)
         }
+        // The child has its own copies; close ours so EOF arrives when it exits.
+        try stdoutPipe.writer.close()
+        try stderrPipe.writer.close()
 
         // Drain stderr concurrently so a full pipe buffer can't deadlock the child.
-        let stderrReader = PipeReader(handle: stderrPipe.fileHandleForReading)
+        let stderrReader = PipeReader(handle: stderrPipe.reader)
         let readers = DispatchGroup()
         readers.enter()
         DispatchQueue.global(qos: .userInitiated).async {
             stderrReader.readToEnd()
             readers.leave()
         }
-        let stdout = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
+        let stdout = stdoutPipe.reader.readDataToEndOfFile()
         readers.wait()
         process.waitUntilExit()
 
@@ -181,6 +192,30 @@ private func withTerminationSignalsUnblocked<T>(_ body: () throws -> T) rethrows
         defer { pthread_sigmask(SIG_SETMASK, &previous, nil) }
     #endif
     return try body()
+}
+
+/// A pipe whose descriptors are close-on-exec. Create it while holding
+/// `ChildProcess.launchLock`.
+///
+/// Foundation's `Pipe` on Linux creates inheritable descriptors, so a child
+/// launched concurrently from another thread can inherit this pipe's write
+/// end, and EOF is then delayed until *that* child exits (#105). The child we
+/// launch still receives the pipe, because `Process` dup2's it onto the
+/// child's stdout/stderr, which clears close-on-exec on the duplicate.
+private struct ClosingPipe {
+    let reader: FileHandle
+    let writer: FileHandle
+
+    init() throws {
+        var descriptors: [Int32] = [-1, -1]
+        guard pipe(&descriptors) == 0 else {
+            throw GitError.commandFailed(command: "pipe", exitCode: errno, stderr: "Could not create pipe")
+        }
+        _ = fcntl(descriptors[0], F_SETFD, FD_CLOEXEC)
+        _ = fcntl(descriptors[1], F_SETFD, FD_CLOEXEC)
+        reader = FileHandle(fileDescriptor: descriptors[0], closeOnDealloc: true)
+        writer = FileHandle(fileDescriptor: descriptors[1], closeOnDealloc: true)
+    }
 }
 
 /// Reads a pipe to end-of-file on a background thread.
