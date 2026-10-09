@@ -11,6 +11,7 @@ final class LaunchTests: XCTestCase {
 
     func testLaunchShowsMainWindow() {
         let app = XCUIApplication()
+        app.launchArguments = ["-UITestInMemoryStore"]
         app.launch()
 
         XCTAssertTrue(app.windows.firstMatch.waitForExistence(timeout: 10))
