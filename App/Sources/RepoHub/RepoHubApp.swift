@@ -6,14 +6,26 @@ import SwiftUI
 @main
 struct RepoHubApp: App {
     private let container: ModelContainer
+    @State private var library: LibraryViewModel
+    private let launchFolders: [URL]
 
     init() {
-        container = Self.makeContainer(arguments: ProcessInfo.processInfo.arguments)
+        let arguments = ProcessInfo.processInfo.arguments
+        let container = Self.makeContainer(arguments: arguments)
+        self.container = container
+        _library = State(initialValue: LibraryViewModel(store: LibraryStore(container: container)))
+        launchFolders = Self.launchFolders(arguments: arguments)
     }
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            LibraryView(model: library)
+                .task {
+                    library.load()
+                    if !launchFolders.isEmpty {
+                        await library.addFolders(launchFolders)
+                    }
+                }
         }
         .modelContainer(container)
     }
@@ -37,5 +49,12 @@ struct RepoHubApp: App {
                 preconditionFailure("Could not create an in-memory store: \(error)")
             }
         }
+    }
+
+    /// Folders passed with `-UITestScanFolder <path>`, scanned at launch by UI tests.
+    private static func launchFolders(arguments: [String]) -> [URL] {
+        zip(arguments, arguments.dropFirst())
+            .filter { $0.0 == "-UITestScanFolder" }
+            .map { URL(fileURLWithPath: $0.1, isDirectory: true) }
     }
 }
