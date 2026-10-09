@@ -16,6 +16,8 @@ Branch protection for this repository is kept under version control here so chan
 | `swift-format` | `lint.yml` |
 | `Env sample` | `lint.yml` |
 | `Gitleaks` | `secret-scan.yml` |
+| `Analyze (swift)` | `codeql.yml` |
+| `Analyze (actions)` | `codeql.yml` |
 | `Core (macOS)` | `ci.yml` |
 | `Core (Linux)` | `ci.yml` |
 | `App (macOS)` | `ci.yml` |
