@@ -29,14 +29,14 @@ jobs:
           ref: ${{ matrix.ref }}
       - name: Build tests
         run: swift build --package-path Packages/RepoHubCore --build-tests
-      - name: Run the suite 20 times
+      - name: Run the suite 100 times
         run: |
           fails=0
-          for i in $(seq 1 20); do
+          for i in $(seq 1 100); do
             if ! out=$(swift test --package-path Packages/RepoHubCore --skip-build 2>&1); then
               fails=$((fails + 1))
               echo "run $i failed:"
               echo "$out" | grep -E 'failed after' | grep 'Test "' | head -4
             fi
           done
-          echo "${{ matrix.variant }}: $fails/20 runs failed" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "${{ matrix.variant }}: $fails/100 runs failed" | tee -a "$GITHUB_STEP_SUMMARY"
