@@ -151,6 +151,9 @@ jobs:
         run: |
           percent=$(awk -F: '/^LF:/ {f += $2} /^LH:/ {h += $2} END {printf "%.1f%%", h * 100 / f}' coverage/backend.lcov)
           echo "**Backend line coverage:** $percent" >> "$GITHUB_STEP_SUMMARY"
+      - name: Install Codecov uploader dependencies
+        # The Swift image lacks gpg, which codecov-action needs to verify its uploader.
+        run: apt-get update -qq && apt-get install -y -qq --no-install-recommends curl gnupg
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
