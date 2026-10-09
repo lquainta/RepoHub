@@ -44,6 +44,14 @@ jobs:
           key: core-linux-${{ hashFiles('Packages/RepoHubCore/Package.swift', 'Packages/RepoHubCore/Package.resolved') }}
       - name: Test
         run: swift test --package-path Packages/RepoHubCore
+      # TEMPORARY (#105): verify 20 consecutive passes on GitHub's x86 runners. Reverted before merge.
+      - name: Repeat tests 20 times
+        run: |
+          for i in $(seq 1 20); do
+            echo "::group::run $i"
+            swift test --package-path Packages/RepoHubCore --skip-build || exit 1
+            echo "::endgroup::"
+          done
 
   app:
     name: App (macOS)
