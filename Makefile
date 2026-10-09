@@ -51,11 +51,14 @@ test-core: ## Test the RepoHubCore package
 test-backend: ## Test the Vapor backend
 	swift test --package-path $(BACKEND_DIR)
 
+# Set RESULT_BUNDLE=path/to/Result.xcresult to keep Xcode's test results.
+RESULT_BUNDLE_FLAG = $(if $(RESULT_BUNDLE),-resultBundlePath $(RESULT_BUNDLE))
+
 test-app: generate ## Run the macOS app's unit tests
-	$(XCODEBUILD) test -skip-testing:RepoHubUITests
+	$(XCODEBUILD) test -skip-testing:RepoHubUITests $(RESULT_BUNDLE_FLAG)
 
 test-ui: generate ## Run the macOS app's UI tests (launches the app and drives it)
-	$(XCODEBUILD) test -only-testing:RepoHubUITests
+	$(XCODEBUILD) test -only-testing:RepoHubUITests $(RESULT_BUNDLE_FLAG)
 
 .PHONY: lint lint-fix
 lint: ## Run SwiftLint in strict mode

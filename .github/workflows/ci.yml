@@ -60,7 +60,17 @@ jobs:
       - name: Show toolchain
         run: xcodebuild -version && xcodegen --version
       - name: Build and test
-        run: make test-app
+        run: make test-app RESULT_BUNDLE=build/app-unit.xcresult
+      - name: Report test failures
+        if: failure()
+        run: scripts/xcresult-failures.sh build/app-unit.xcresult
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: app-unit-xcresult
+          path: build/app-unit.xcresult
+          retention-days: 7
 
   app-ui:
     name: App UI tests (macOS)
@@ -75,7 +85,23 @@ jobs:
           unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP"
           echo "$RUNNER_TEMP/xcodegen/bin" >> "$GITHUB_PATH"
       - name: UI tests
-        run: make test-ui
+        run: make test-ui RESULT_BUNDLE=build/app-ui.xcresult
+      - name: Report test failures
+        if: failure()
+        run: scripts/xcresult-failures.sh build/app-ui.xcresult
+      - name: Show app logs and crash reports
+        if: failure()
+        run: |
+          log show --last 15m --style compact --predicate 'process == "RepoHub"' | tail -n 150 || true
+          ls -1 ~/Library/Logs/DiagnosticReports/ 2>/dev/null | grep -i repohub || echo "No RepoHub crash reports"
+          for report in ~/Library/Logs/DiagnosticReports/RepoHub*; do [ -f "$report" ] && head -n 60 "$report"; done || true
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: app-ui-xcresult
+          path: build/app-ui.xcresult
+          retention-days: 7
 
   backend:
     name: Backend (Linux)
