@@ -89,6 +89,12 @@ jobs:
       - name: Report test failures
         if: failure()
         run: scripts/xcresult-failures.sh build/app-ui.xcresult
+      - name: Show app logs and crash reports
+        if: failure()
+        run: |
+          log show --last 15m --style compact --predicate 'process == "RepoHub"' | tail -n 150 || true
+          ls -1 ~/Library/Logs/DiagnosticReports/ 2>/dev/null | grep -i repohub || echo "No RepoHub crash reports"
+          for report in ~/Library/Logs/DiagnosticReports/RepoHub*; do [ -f "$report" ] && head -n 60 "$report"; done || true
       - name: Upload test results
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
