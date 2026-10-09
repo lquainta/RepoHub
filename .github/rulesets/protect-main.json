@@ -90,6 +90,10 @@
           {
             "context": "Gitleaks",
             "integration_id": 15368
+          },
+          {
+            "context": "DevContainer",
+            "integration_id": 15368
           }
         ]
       }

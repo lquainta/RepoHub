@@ -1,0 +1,30 @@
+{
+  "name": "RepoHub backend",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "dev",
+  "runServices": ["dev", "postgres", "redis"],
+  "workspaceFolder": "/workspaces/RepoHub",
+  "shutdownAction": "stopCompose",
+  "remoteUser": "vscode",
+  "forwardPorts": [8080, "postgres:5432", "redis:6379"],
+  "portsAttributes": {
+    "8080": { "label": "RepoHub API", "onAutoForward": "notify" },
+    "postgres:5432": { "label": "PostgreSQL", "onAutoForward": "silent" },
+    "redis:6379": { "label": "Redis", "onAutoForward": "silent" }
+  },
+  "postCreateCommand": ".devcontainer/post-create.sh",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "swiftlang.swift-vscode",
+        "vknabel.vscode-swiftlint",
+        "EditorConfig.EditorConfig",
+        "redhat.vscode-yaml"
+      ],
+      "settings": {
+        "swift.path": "/usr/bin",
+        "editor.formatOnSave": false
+      }
+    }
+  }
+}

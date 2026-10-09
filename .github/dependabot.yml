@@ -40,4 +40,33 @@ updates:
       actions-minor-and-patch:
         update-types: [minor, patch]
 
-  # The docker ecosystem is added with the backend Dockerfile in #39.
+  # DevContainer base image and service images (Postgres, Redis)
+  - package-ecosystem: docker
+    directory: /.devcontainer
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/Boise
+    commit-message:
+      prefix: chore
+      include: scope
+    labels:
+      - "type: chore"
+      - "component: infra"
+
+  - package-ecosystem: docker-compose
+    directory: /.devcontainer
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/Boise
+    commit-message:
+      prefix: chore
+      include: scope
+    labels:
+      - "type: chore"
+      - "component: infra"
+
+  # The backend production Dockerfile is added in #39.
