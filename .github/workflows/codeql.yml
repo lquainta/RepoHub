@@ -24,6 +24,7 @@ jobs:
   analyze:
     name: Analyze (${{ matrix.language }})
     runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
     permissions:
       contents: read
       security-events: write
@@ -57,10 +58,10 @@ jobs:
           build-mode: ${{ matrix.build-mode }}
           queries: security-and-quality
 
-      - name: Build (traced by CodeQL)
+      - name: Build app and core (traced by CodeQL)
         if: matrix.build-mode == 'manual'
         run: |
-          make build-core build-backend
+          make build-core
           make generate
           xcodebuild -project App/RepoHub.xcodeproj -scheme RepoHub -destination 'platform=macOS' \
             -quiet build CODE_SIGNING_ALLOWED=NO
@@ -69,3 +70,28 @@ jobs:
         uses: github/codeql-action/analyze@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
         with:
           category: /language:${{ matrix.language }}
+
+  # The backend is analyzed outside the PR path: tracing its build also traces
+  # every Vapor/SwiftNIO dependency, which takes ~50 minutes.
+  analyze-backend:
+    name: Analyze (swift, backend)
+    if: github.event_name != 'pull_request'
+    runs-on: macos-26
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          languages: swift
+          build-mode: manual
+          queries: security-and-quality
+      - name: Build backend (traced by CodeQL)
+        run: make build-backend
+      - name: Analyze
+        uses: github/codeql-action/analyze@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          category: /language:swift-backend
