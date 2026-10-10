@@ -48,6 +48,7 @@ final class SettingsModel {
         staleBranchDays = AppPreferences.staleBranchDays(defaults) ?? 0
         ignoredFolderNames = AppPreferences.ignoredFolderNames(defaults).sorted()
         showMenuBarExtra = AppPreferences.showMenuBarExtra(defaults)
+        menuBarOnly = defaults.bool(forKey: AppPreferences.menuBarOnlyKey)
         launchAtLogin = loginItem.isEnabled
     }
 
@@ -79,6 +80,12 @@ final class SettingsModel {
     /// Whether the menu bar summary is shown.
     var showMenuBarExtra: Bool {
         didSet { defaults.set(showMenuBarExtra, forKey: AppPreferences.showMenuBarExtraKey) }
+    }
+
+    /// Whether RepoHub runs from the menu bar only (no Dock icon). Only has an
+    /// effect while the menu bar summary is shown.
+    var menuBarOnly: Bool {
+        didSet { defaults.set(menuBarOnly, forKey: AppPreferences.menuBarOnlyKey) }
     }
 
     /// Whether RepoHub opens at login. Reverts if registration fails.

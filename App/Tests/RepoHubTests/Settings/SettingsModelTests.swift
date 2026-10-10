@@ -53,6 +53,7 @@ struct SettingsModelTests {
         settings.backgroundFetchMinutes = 15
         settings.staleBranchDays = 0
         settings.showMenuBarExtra = false
+        settings.menuBarOnly = true
         settings.addIgnoredFolderName("vendor")
 
         let reloaded = SettingsModel(defaults: defaults, loginItem: FakeLoginItem())
@@ -61,6 +62,7 @@ struct SettingsModelTests {
         #expect(reloaded.backgroundFetchMinutes == 15)
         #expect(reloaded.staleBranchDays == 0)
         #expect(!reloaded.showMenuBarExtra)
+        #expect(reloaded.menuBarOnly)
         #expect(reloaded.ignoredFolderNames.contains("vendor"))
 
         #expect(AppPreferences.editorBundleID(defaults) == "dev.zed.Zed")

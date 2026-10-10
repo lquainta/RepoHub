@@ -39,6 +39,8 @@ private struct GeneralSettings: View {
             Section {
                 Toggle("Open RepoHub at login", isOn: $settings.launchAtLogin)
                 Toggle("Show summary in the menu bar", isOn: $settings.showMenuBarExtra)
+                Toggle("Run in the menu bar only (no Dock icon)", isOn: $settings.menuBarOnly)
+                    .disabled(!settings.showMenuBarExtra)
             }
             Section {
                 Picker("Fetch all repositories", selection: $settings.backgroundFetchMinutes) {

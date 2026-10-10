@@ -20,6 +20,8 @@ enum AppPreferences {
     static let ignoredFolderNamesKey = "ignoredFolderNames"
     /// Whether the menu bar summary is shown.
     static let showMenuBarExtraKey = "showMenuBarExtra"
+    /// Whether RepoHub runs from the menu bar only, without a Dock icon or main window at launch.
+    static let menuBarOnlyKey = "menuBarOnly"
 
     /// Visual Studio Code.
     static let defaultEditorBundleID = "com.microsoft.VSCode"
