@@ -27,6 +27,22 @@ make run-backend
 
 Vapor loads `.env` and then `.env.<environment>` (for example `.env.testing`) from the working directory. Both patterns are git-ignored; only `.env.sample` is committed.
 
+## Environments
+
+The backend runs in one of three [Vapor environments](https://docs.vapor.codes/basics/environment/). Each has its **own database**, so tests and development never touch production data.
+
+| Environment | Selected by | Database | Where it runs |
+| --- | --- | --- | --- |
+| `development` | default for `swift run App serve` / `make run-backend` | `repohub_dev` | docker compose (`make up`) or the DevContainer |
+| `testing` | `swift test` (`Application.make(.testing)`) | `repohub_test`, from **`TEST_DATABASE_URL`** | CI service container, DevContainer, compose, or any local Postgres |
+| `production` | `--env production` (the Docker image's default command) | managed Postgres on Fly.io (#42) | Fly.io |
+
+- **Configuration:** each environment reads `DATABASE_URL`. Vapor also loads `.env.<environment>` (for example `.env.testing`) after `.env`, so environment-specific values can live there (git-ignored).
+- **Tests can't touch other databases.** Integration tests use only `TEST_DATABASE_URL`, never `DATABASE_URL`. They **refuse to run unless the database name ends in `_test`**, because each test migrates a fresh schema and drops every table afterwards. Without `TEST_DATABASE_URL`, they're skipped.
+- **Each test database is reset per run:** every integration test reverts leftovers, migrates an empty schema, and reverts it afterwards.
+- **Production TLS:** in production, database TLS is required unless the URL sets `sslmode` (see `.env.sample`).
+- **Test databases already exist** in the DevContainer and docker compose: `repohub_test` is created by `.devcontainer/postgres-init/`, next to `repohub_dev`.
+
 ## Adding a variable
 
 In the same PR:

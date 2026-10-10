@@ -109,4 +109,18 @@ struct ConfigurationTests {
             )
         }
     }
+
+    @Test(
+        "Integration tests only accept databases named *_test",
+        arguments: [
+            ("postgres://u@localhost:5432/repohub_test", true),
+            ("postgres://u@localhost:5432/repohub_test?sslmode=disable", true),
+            ("postgres://u@localhost:5432/repohub_dev", false),
+            ("postgres://u@db.fly.internal:5432/repohub", false),
+            ("postgres://u@localhost:5432/", false),
+        ]
+    )
+    func disposableTestDatabase(url: String, accepted: Bool) {
+        #expect(TestDatabase.isDisposable(url) == accepted)
+    }
 }
