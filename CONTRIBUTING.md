@@ -62,6 +62,10 @@ A change is done when:
 - tests cover the new behavior and CI is green
 - lint and format checks pass
 - documentation, diagrams, ADRs, or the OpenAPI spec are updated if affected
+
+## Architecture decisions
+
+Significant decisions (a new service, library, data store, or a change to how components talk) get an [Architecture Decision Record](docs/adr/README.md) in the same PR. Copy [`docs/adr/template.md`](docs/adr/template.md); never rewrite an accepted ADR. Supersede it with a new one instead.
 - the PR is squash-merged and the issue is closed
 
 ## Reporting bugs and requesting features
