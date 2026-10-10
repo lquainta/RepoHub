@@ -17,6 +17,10 @@ final class LibraryViewModel {
     var errorMessage: String?
     /// The git status of each repository.
     let statuses: StatusMonitor
+    /// Details of the selected repository.
+    let detail: RepositoryDetailModel
+    /// Path of the selected repository, if any.
+    private(set) var selectedPath: String?
 
     private let store: LibraryStore
     private let scanner: any RepositoryScanning
@@ -25,11 +29,24 @@ final class LibraryViewModel {
     init(
         store: LibraryStore,
         scanner: any RepositoryScanning = RepositoryScanner(),
-        statuses: StatusMonitor? = nil
+        statuses: StatusMonitor? = nil,
+        detail: RepositoryDetailModel? = nil
     ) {
         self.store = store
         self.scanner = scanner
         self.statuses = statuses ?? StatusMonitor()
+        self.detail = detail ?? RepositoryDetailModel()
+    }
+
+    /// The selected repository, if it's still tracked.
+    var selectedRepository: TrackedRepository? {
+        repositories.first { $0.path == selectedPath }
+    }
+
+    /// Selects the repository at `path` (or nothing) and loads its details.
+    func select(_ path: String?) async {
+        selectedPath = path
+        await detail.show(path)
     }
 
     /// Dashboard rows: every repository with its latest known status.
@@ -84,6 +101,10 @@ final class LibraryViewModel {
         }
         load()
         statuses.retain(only: Set(repositories.map(\.path)))
+        if selectedRepository == nil {
+            selectedPath = nil
+            Task { await detail.show(nil) }
+        }
     }
 
     /// Scans every folder again, picking up new repositories and dropping
@@ -91,6 +112,7 @@ final class LibraryViewModel {
     func rescanAll() async {
         await scan(folders)
         await refreshStatuses()
+        await detail.reload()
     }
 
     /// Scans each folder in turn. A failure in one folder doesn't stop the others.
@@ -116,6 +138,9 @@ final class LibraryViewModel {
         load()
         let paths = Set(repositories.map(\.path))
         statuses.retain(only: paths)
+        if selectedPath.map({ !paths.contains($0) }) == true {
+            await select(nil)
+        }
         // Read newly found repositories right away; known ones keep their status.
         await statuses.refresh(repositories.map(\.path).filter { statuses.state(for: $0) == nil })
     }

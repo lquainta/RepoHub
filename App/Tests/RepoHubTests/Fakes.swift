@@ -23,6 +23,22 @@ actor FakeGit: GitServicing {
         results[path] = result
     }
 
+    /// Per-path delays for `details(of:)`, to simulate slow repositories.
+    private var detailDelays: [String: Duration] = [:]
+
+    func setDetailDelay(_ delay: Duration, for path: String) {
+        detailDelays[path] = delay
+    }
+
+    /// Returns details built from the canned status for `repository`.
+    func details(of repository: URL, commitLimit: Int) async throws -> RepositoryDetails {
+        if let delay = detailDelays[repository.path] {
+            try await Task.sleep(for: delay)
+        }
+        let status = try (results[repository.path] ?? .success(RepoStatus(head: .branch("main")))).get()
+        return RepositoryDetails(status: status, remotes: [Remote(name: "origin", fetchURL: repository.path)])
+    }
+
     func status(of repository: URL) async throws -> RepoStatus {
         reads.append(repository.path)
         running += 1

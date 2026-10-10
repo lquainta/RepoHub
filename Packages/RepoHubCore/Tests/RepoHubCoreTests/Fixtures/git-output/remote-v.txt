@@ -1,0 +1,4 @@
+origin	/work/origin.git (fetch)
+origin	git@example.com:ada/repo.git (push)
+upstream	https://example.com/upstream/repo.git (fetch)
+upstream	https://example.com/upstream/repo.git (push)

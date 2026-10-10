@@ -62,6 +62,41 @@ struct GitServiceIntegrationTests {
         #expect(status.behind == 1)
     }
 
+    @Test("Details match git for branches, commits, remotes, and stashes")
+    func details() async throws {
+        let origin = try await TemporaryRepository.make(bare: true)
+        let local = try await TemporaryRepository.make()
+        defer {
+            origin.remove()
+            local.remove()
+        }
+        try await local.commit("First", file: "a.txt")
+        try await local.git(["remote", "add", "origin", origin.url.path])
+        try await local.git(["push", "-q", "-u", "origin", "main"])
+        try await local.git(["switch", "-q", "-c", "topic"])
+        try await local.commit("Second", file: "b.txt")
+        try await local.git(["switch", "-q", "main"])
+        try local.write("a.txt", "stash me")
+        try await local.git(["stash", "push", "-q", "-m", "Saved work"])
+        try local.write("a.txt", "edited")
+        try local.write("new.txt", "new")
+
+        let details = try await service.details(of: local.url)
+
+        #expect(details.branches.map(\.name) == ["main", "topic", "origin/main"])
+        #expect(details.branches.first { $0.name == "main" }?.isCurrent == true)
+        #expect(details.branches.first { $0.name == "main" }?.upstream == "origin/main")
+        #expect(details.recentCommits.map(\.subject) == ["First"])
+        #expect(details.remotes == [Remote(name: "origin", fetchURL: origin.url.path)])
+        #expect(details.stashes.map(\.message) == ["On main: Saved work"])
+        #expect(
+            details.files == [
+                FileChange(path: "a.txt", area: .unstaged, kind: .modified),
+                FileChange(path: "new.txt", area: .untracked, kind: .untracked),
+            ]
+        )
+    }
+
     @Test("Directory that is not a repository throws notARepository")
     func notARepository() async throws {
         let directory = try TemporaryRepository.makeDirectory()

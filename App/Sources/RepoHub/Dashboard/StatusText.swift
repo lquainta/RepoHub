@@ -47,6 +47,58 @@ enum StatusText {
         }
     }
 
+    /// Section title for a change area.
+    static func title(for area: FileChange.Area) -> String {
+        switch area {
+        case .staged: String(localized: "Staged")
+        case .unstaged: String(localized: "Not Staged")
+        case .untracked: String(localized: "Untracked")
+        case .conflicted: String(localized: "Conflicts")
+        }
+    }
+
+    /// For example "Added" or "Renamed".
+    static func description(of kind: FileChange.Kind) -> String {
+        switch kind {
+        case .added: String(localized: "Added")
+        case .modified: String(localized: "Modified")
+        case .deleted: String(localized: "Deleted")
+        case .renamed: String(localized: "Renamed")
+        case .copied: String(localized: "Copied")
+        case .typeChanged: String(localized: "Type changed")
+        case .unmerged: String(localized: "Conflict")
+        case .untracked: String(localized: "Untracked")
+        }
+    }
+
+    /// SF Symbol for a kind of change.
+    static func symbol(for kind: FileChange.Kind) -> String {
+        switch kind {
+        case .added: "plus.circle"
+        case .modified: "pencil.circle"
+        case .deleted: "minus.circle"
+        case .renamed: "arrow.right.circle"
+        case .copied: "doc.on.doc"
+        case .typeChanged: "arrow.triangle.swap"
+        case .unmerged: "exclamationmark.triangle"
+        case .untracked: "questionmark.circle"
+        }
+    }
+
+    /// For example "origin/main · 2 ahead", "origin/old · deleted on remote", or `nil` without upstream.
+    static func tracking(of branch: Branch) -> String? {
+        guard let upstream = branch.upstream else {
+            return nil
+        }
+        if branch.isUpstreamGone {
+            return String(localized: "\(upstream) · deleted on remote")
+        }
+        let sync = sync(
+            RepoStatus(head: .branch(branch.name), upstream: upstream, ahead: branch.ahead, behind: branch.behind)
+        )
+        return "\(upstream) · \(sync)"
+    }
+
     /// A short explanation of why a repository's status couldn't be read.
     static func message(for error: GitError) -> String {
         switch error {

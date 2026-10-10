@@ -9,9 +9,13 @@ struct LibraryView: View {
     var body: some View {
         NavigationSplitView {
             FolderSidebar(model: model, isImporting: $isImporting)
-                .navigationSplitViewColumnWidth(min: 200, ideal: 240)
-        } detail: {
+                .navigationSplitViewColumnWidth(min: 180, ideal: 220)
+        } content: {
             RepositoryList(model: model, isImporting: $isImporting)
+                .navigationSplitViewColumnWidth(min: 420, ideal: 640)
+        } detail: {
+            RepositoryDetailView(model: model.detail, name: model.selectedRepository?.name)
+                .navigationSplitViewColumnWidth(min: 280, ideal: 360)
         }
         .toolbar {
             ToolbarItemGroup {
@@ -51,7 +55,7 @@ struct LibraryView: View {
         } message: {
             Text(model.errorMessage ?? "")
         }
-        .frame(minWidth: 700, minHeight: 420)
+        .frame(minWidth: 960, minHeight: 480)
     }
 }
 
@@ -100,7 +104,14 @@ private struct RepositoryList: View {
                 description: Text("None of your folders contain git repositories.")
             )
         } else {
-            DashboardTable(rows: model.rows, refreshing: model.statuses.refreshing)
+            DashboardTable(
+                rows: model.rows,
+                refreshing: model.statuses.refreshing,
+                selection: Binding(
+                    get: { model.selectedPath },
+                    set: { path in Task { await model.select(path) } }
+                )
+            )
         }
     }
 }

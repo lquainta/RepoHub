@@ -8,6 +8,13 @@ public enum CommitSummaryParser {
     /// appear in author names or subjects.
     public static let format = "%H%x1f%an%x1f%aI%x1f%s"
 
+    /// Parses one commit per line, as printed by `git log --format=<format>`.
+    ///
+    /// - Throws: ``GitError/unexpectedOutput(_:)`` if any line is malformed.
+    public static func parseList(_ output: String) throws -> [CommitSummary] {
+        try output.split(separator: "\n", omittingEmptySubsequences: true).map { try parse(String($0)) }
+    }
+
     /// Parses a single commit line.
     ///
     /// - Throws: ``GitError/unexpectedOutput(_:)`` if a field is missing or the date is invalid.

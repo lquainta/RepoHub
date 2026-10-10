@@ -35,6 +35,35 @@ struct StatusTextTests {
         #expect(StatusText.branch(.unborn(branch: "main")) == "main (no commits)")
     }
 
+    @Test("Branch tracking describes the upstream, its sync, or that it was deleted")
+    func tracking() {
+        let date = Date(timeIntervalSince1970: 0)
+        #expect(StatusText.tracking(of: Branch(name: "x", commit: "a", lastCommitDate: date)) == nil)
+        #expect(
+            StatusText.tracking(
+                of: Branch(name: "x", upstream: "origin/x", ahead: 2, commit: "a", lastCommitDate: date)
+            )
+                == "origin/x · 2 ahead"
+        )
+        #expect(
+            StatusText.tracking(
+                of: Branch(name: "x", upstream: "origin/x", isUpstreamGone: true, commit: "a", lastCommitDate: date)
+            )
+                == "origin/x · deleted on remote"
+        )
+    }
+
+    @Test("Every change kind and area has a description")
+    func kindsAndAreas() {
+        let kinds: [FileChange.Kind] = [
+            .added, .modified, .deleted, .renamed, .copied, .typeChanged, .unmerged, .untracked,
+        ]
+        #expect(Set(kinds.map(StatusText.description(of:))).count == kinds.count)
+        #expect(Set(kinds.map(StatusText.symbol(for:))).count == kinds.count)
+        #expect(Set(FileChange.Area.allCases.map(StatusText.title(for:))).count == FileChange.Area.allCases.count)
+        #expect(Set(FileChange.Area.displayOrder) == Set(FileChange.Area.allCases))
+    }
+
     @Test("Git errors become short explanations")
     func errorMessages() {
         #expect(StatusText.message(for: .notARepository(path: "/x")) == "This folder isn't a git repository.")

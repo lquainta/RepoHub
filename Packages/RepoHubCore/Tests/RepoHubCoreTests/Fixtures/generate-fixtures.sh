@@ -86,4 +86,28 @@ status "$work/conflict" conflicted
 # last commit, using the same format GitService requests
 git -C "$work/base" log -1 --format='%H%x1f%an%x1f%aI%x1f%s' > "$out/log-last-commit.txt"
 
+# details: branches (current, ahead of upstream, upstream gone, local-only),
+# remote-tracking branches, a remote with a separate push URL, and stashes.
+# Temporary paths are replaced with /work so fixtures are stable.
+sanitize() { sed "s|$work|/work|g"; }
+cp -R "$work/base" "$work/details"
+git -C "$work/details" checkout -q -b feature/ahead
+git -C "$work/details" push -q -u origin feature/ahead
+commit_file "$work/details" ahead.txt "a" "Ahead of upstream"
+git -C "$work/details" checkout -q -b feature/gone main
+git -C "$work/details" push -q -u origin feature/gone
+git -C "$work/details" push -q origin --delete feature/gone
+git -C "$work/details" fetch -q --prune origin
+git -C "$work/details" checkout -q -b local-only main
+commit_file "$work/details" local.txt "l" "Local only"
+git -C "$work/details" checkout -q main
+git -C "$work/details" remote set-url --push origin "git@example.com:ada/repo.git"
+git -C "$work/details" remote add upstream "https://example.com/upstream/repo.git"
+echo s1 > "$work/details/README.md" && git -C "$work/details" stash push -q -m "First stash"
+echo s2 > "$work/details/README.md" && git -C "$work/details" stash push -q -m "Second stash"
+git -C "$work/details" for-each-ref --format='%(refname)%1f%(upstream:short)%1f%(upstream:track,nobracket)%1f%(objectname)%1f%(committerdate:iso-strict)%1f%(HEAD)' refs/heads refs/remotes > "$out/for-each-ref.txt"
+git -C "$work/details" remote -v | sanitize > "$out/remote-v.txt"
+git -C "$work/details" stash list --format='%gd%x1f%cI%x1f%gs' > "$out/stash-list.txt"
+git -C "$work/details" log -20 --format='%H%x1f%an%x1f%aI%x1f%s' feature/ahead > "$out/log-recent.txt"
+
 echo "Fixtures written to $out"
