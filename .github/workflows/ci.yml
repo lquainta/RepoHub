@@ -192,6 +192,41 @@ jobs:
           use_oidc: true
           fail_ci_if_error: false
 
+  docker:
+    name: Docker image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build backend image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: Backend/Dockerfile
+          build-args: BUILD_COMMIT=${{ github.sha }}
+          tags: repohub-backend:ci
+          load: true
+          push: false
+          cache-from: type=gha,scope=backend-image
+          cache-to: type=gha,mode=max,scope=backend-image
+      - name: Smoke test the image
+        run: |
+          # /health doesn't touch the database, so a placeholder URL is enough.
+          docker run -d --name api -p 8080:8080 \
+            -e "DATABASE_URL=postgres://repohub@localhost:5432/unused?sslmode=disable" repohub-backend:ci
+          for _ in $(seq 1 30); do curl -fsS localhost:8080/health && break; sleep 1; done
+          curl -fsS localhost:8080/health | grep -q '"status":"ok"'
+          curl -fsS localhost:8080/health | grep -q "\"commit\":\"${GITHUB_SHA}\""
+          test "$(docker exec api id -u)" != "0"
+          for _ in $(seq 1 20); do
+            [ "$(docker inspect api --format '{{.State.Health.Status}}')" = healthy ] && break; sleep 3
+          done
+          test "$(docker inspect api --format '{{.State.Health.Status}}')" = healthy
+          docker images repohub-backend:ci --format '**Backend image:** {{.Size}} uncompressed' >> "$GITHUB_STEP_SUMMARY"
+      - name: Show container logs
+        if: failure()
+        run: docker logs api || true
+
   devcontainer:
     name: DevContainer
     runs-on: ubuntu-latest
