@@ -115,9 +115,14 @@ private final class ChildProcess: @unchecked Sendable {
     func run() async throws -> Result {
         try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
-                DispatchQueue.global(qos: .userInitiated).async {
+                // A dedicated thread, not a dispatch queue: this blocks until the
+                // child exits, and on Linux libdispatch's global pool is capped near
+                // the CPU count. Blocked workers there starved other commands'
+                // stderr readers, so terminated commands finished seconds late (#105).
+                Thread {
                     continuation.resume(with: Swift.Result { try self.runBlocking() })
                 }
+                .start()
             }
         } onCancel: {
             terminate()
@@ -133,8 +138,8 @@ private final class ChildProcess: @unchecked Sendable {
         }
     }
 
-    /// Starts the process and blocks until it exits. Must not run on the
-    /// cooperative thread pool.
+    /// Starts the process and blocks until it exits. Runs on a dedicated
+    /// thread; must not run on the cooperative pool or a dispatch queue.
     private func runBlocking() throws -> Result {
         let stdoutPipe = Pipe()
         let stderrPipe = Pipe()
@@ -145,14 +150,16 @@ private final class ChildProcess: @unchecked Sendable {
             try withTerminationSignalsUnblocked { try process.run() }
         }
 
-        // Drain stderr concurrently so a full pipe buffer can't deadlock the child.
+        // Drain stderr concurrently so a full pipe buffer can't deadlock the
+        // child. Also a dedicated thread, for the same reason as in run().
         let stderrReader = PipeReader(handle: stderrPipe.fileHandleForReading)
         let readers = DispatchGroup()
         readers.enter()
-        DispatchQueue.global(qos: .userInitiated).async {
+        Thread {
             stderrReader.readToEnd()
             readers.leave()
         }
+        .start()
         let stdout = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
         readers.wait()
         process.waitUntilExit()
