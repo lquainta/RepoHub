@@ -92,6 +92,16 @@ format: ## Format all Swift sources in place with swift-format
 format-check: ## Fail if any Swift source is not formatted
 	swift format lint --strict --recursive --parallel $(FORMAT_PATHS)
 
+.PHONY: migrate migrate-revert check-migrations
+migrate: ## Apply database migrations to $$DATABASE_URL
+	swift run --package-path $(BACKEND_DIR) App migrate --yes
+
+migrate-revert: ## Revert the last batch of migrations on $$DATABASE_URL
+	swift run --package-path $(BACKEND_DIR) App migrate --revert --yes
+
+check-migrations: ## Migrate, revert, and migrate again on a clean $$DATABASE_URL
+	scripts/check-migrations.sh
+
 .PHONY: run-backend open
 run-backend: ## Run the backend on http://localhost:8080
 	swift run --package-path $(BACKEND_DIR) App serve --hostname 0.0.0.0 --port 8080

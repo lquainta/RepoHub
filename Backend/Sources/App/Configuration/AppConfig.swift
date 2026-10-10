@@ -7,10 +7,13 @@ import Vapor
 struct AppConfig: Sendable {
     /// Git commit the running build was produced from, reported by `/health`.
     let buildCommit: String
+    /// PostgreSQL connection settings.
+    let database: DatabaseConfig
 
     /// Loads configuration using `reader`.
-    init(reader: EnvironmentReader = EnvironmentReader()) throws {
+    init(reader: EnvironmentReader = EnvironmentReader(), environment: Environment = .development) throws {
         buildCommit = reader.optional("BUILD_COMMIT") ?? "unknown"
+        database = try DatabaseConfig(reader: reader, environment: environment)
     }
 }
 

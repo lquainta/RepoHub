@@ -240,3 +240,12 @@ Sync (#80) is last-write-wins per row:
 - Production: on Fly.io.
 
 Separating them is #32.
+
+## Migrations
+
+The schema is created and changed **only** by the Fluent migrations in `Backend/Sources/App/Migrations/` (#31). No environment is ever changed by hand.
+
+- **Order:** one migration per table in dependency order, then `CreateIndexes`. They're listed in `Migrations.all`. Never reorder, edit, or remove a migration that has run anywhere; add a new one at the end.
+- **Reversible:** every migration implements `revert`. CI proves the full schema can be created, torn down, and recreated on a clean database (`scripts/check-migrations.sh`, `make check-migrations`).
+- **Running:** `make migrate` applies pending migrations to `$DATABASE_URL`. The DevContainer runs it when created, and continuous deployment runs it before the new version serves traffic (#43).
+- **Tests:** integration tests migrate an empty schema before each test and revert it afterwards.

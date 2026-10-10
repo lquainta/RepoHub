@@ -147,6 +147,21 @@ jobs:
       id-token: write # Codecov OIDC upload, no stored token
     container:
       image: swift:6.4-noble
+    services:
+      # Throwaway databases for this job only: migrations are checked on one,
+      # integration tests run on the other.
+      postgres:
+        image: postgres:18.6-alpine
+        env:
+          POSTGRES_USER: repohub
+          POSTGRES_PASSWORD: repohub
+          POSTGRES_DB: repohub_test
+        options: >-
+          --health-cmd "pg_isready -U repohub -d repohub_test"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://repohub:repohub@postgres:5432/repohub_test
+      MIGRATION_CHECK_URL: postgres://repohub:repohub@postgres:5432/repohub_migrations
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -154,7 +169,13 @@ jobs:
           path: Backend/.build
           key: backend-linux-${{ hashFiles('Backend/Package.resolved') }}
           restore-keys: backend-linux-
-      - name: Test with coverage
+      - name: Install PostgreSQL client
+        run: apt-get update -qq && apt-get install -y -qq --no-install-recommends postgresql-client
+      - name: Check migrations (migrate -> revert -> migrate on a clean database)
+        run: |
+          psql "$TEST_DATABASE_URL" -qc "CREATE DATABASE repohub_migrations"
+          DATABASE_URL="$MIGRATION_CHECK_URL" scripts/check-migrations.sh
+      - name: Test with coverage (unit and PostgreSQL integration tests)
         run: scripts/package-coverage.sh Backend coverage/backend.lcov
       - name: Coverage summary
         run: |
