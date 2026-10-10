@@ -75,6 +75,10 @@ coverage: ## Run tests with coverage and write LCOV reports to coverage/
 	$(MAKE) test-app DERIVED_DATA=build/DerivedData
 	scripts/app-coverage.sh build/DerivedData coverage/app.lcov
 
+.PHONY: bench
+bench: ## Run the performance benchmarks in a release build (budgets fail on regressions)
+	REPOHUB_BENCHMARK=1 swift test -c release --package-path $(CORE_DIR) --filter PerformanceTests
+
 .PHONY: lint lint-fix
 lint: ## Run SwiftLint in strict mode
 	swiftlint lint --strict --quiet
