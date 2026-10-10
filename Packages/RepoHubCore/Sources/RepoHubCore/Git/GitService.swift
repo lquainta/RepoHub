@@ -1,7 +1,15 @@
 import Foundation
 
+/// Reads and changes repository state. ``GitService`` is the real
+/// implementation; the app's view models depend on this protocol so tests can
+/// inject fakes.
+public protocol GitServicing: Sendable {
+    /// Returns the current status of the repository at `repository`.
+    func status(of repository: URL) async throws -> RepoStatus
+}
+
 /// Reads repository state by running git.
-public struct GitService: Sendable {
+public struct GitService: GitServicing {
     private let runner: any GitCommandRunning
 
     /// Creates a service that runs commands with `runner`.

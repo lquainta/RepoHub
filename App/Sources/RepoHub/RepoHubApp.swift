@@ -25,6 +25,7 @@ struct RepoHubApp: App {
                     if !launchFolders.isEmpty {
                         await library.addFolders(launchFolders)
                     }
+                    await library.refreshStatuses()
                 }
         }
         .modelContainer(container)
