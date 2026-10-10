@@ -13,7 +13,12 @@ struct RepoHubApp: App {
         let environment = ProcessInfo.processInfo.environment
         let container = Self.makeContainer(environment: environment)
         self.container = container
-        _library = State(initialValue: LibraryViewModel(store: LibraryStore(container: container)))
+        _library = State(
+            initialValue: LibraryViewModel(
+                store: LibraryStore(container: container),
+                autoRefresh: AutoRefreshController()
+            )
+        )
         launchFolders = Self.launchFolders(environment: environment)
     }
 
@@ -22,6 +27,7 @@ struct RepoHubApp: App {
             LibraryView(model: library)
                 .task {
                     library.load()
+                    library.autoRefresh?.start()
                     if !launchFolders.isEmpty {
                         await library.addFolders(launchFolders)
                     }

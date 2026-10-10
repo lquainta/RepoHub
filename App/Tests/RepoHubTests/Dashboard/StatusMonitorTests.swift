@@ -49,6 +49,22 @@ struct StatusMonitorTests {
         #expect(monitor.state(for: "/repos/a") == .loaded(behind))
     }
 
+    @Test("A refresh requested while one is running reads the repository again afterwards")
+    func refreshDuringRefresh() async {
+        let git = FakeGit(delay: .milliseconds(150))
+        let monitor = StatusMonitor(git: git)
+        let first = Task { await monitor.refresh(["/repos/a"]) }
+        try? await Task.sleep(for: .milliseconds(50))
+
+        let changed = RepoStatus(head: .branch("main"), changes: FileChangeCounts(untracked: 1))
+        await git.setResult(.success(changed), for: "/repos/a")
+        await monitor.refresh(["/repos/a"])
+        await first.value
+
+        #expect(monitor.state(for: "/repos/a") == .loaded(changed))
+        #expect(await git.reads.count == 2)
+    }
+
     @Test("Retain drops repositories that are no longer tracked")
     func retainDropsUntracked() async {
         let monitor = StatusMonitor(git: FakeGit())

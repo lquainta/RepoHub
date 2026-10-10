@@ -21,6 +21,8 @@ final class LibraryViewModel {
     let detail: RepositoryDetailModel
     /// Fetch, pull, and open actions.
     let actions: RepositoryActions
+    /// Watches for file changes and refreshes affected repositories, if enabled.
+    let autoRefresh: AutoRefreshController?
     /// Path of the selected repository, if any.
     private(set) var selectedPath: String?
     /// User-defined groups, oldest first.
@@ -39,15 +41,27 @@ final class LibraryViewModel {
         scanner: any RepositoryScanning = RepositoryScanner(),
         statuses: StatusMonitor? = nil,
         detail: RepositoryDetailModel? = nil,
-        actions: RepositoryActions? = nil
+        actions: RepositoryActions? = nil,
+        autoRefresh: AutoRefreshController? = nil
     ) {
         self.store = store
         self.scanner = scanner
         self.statuses = statuses ?? StatusMonitor()
         self.detail = detail ?? RepositoryDetailModel()
         self.actions = actions ?? RepositoryActions()
+        self.autoRefresh = autoRefresh
         self.actions.onRepositoriesChanged = { [weak self] paths in
             await self?.repositoriesChanged(paths)
+        }
+        autoRefresh?.onRefresh = { [weak self] paths in
+            await self?.repositoriesChanged(paths)
+        }
+        autoRefresh?.onRefreshAll = { [weak self] in
+            guard let self else { return }
+            await repositoriesChanged(repositories.map(\.path))
+        }
+        autoRefresh?.onBackgroundFetch = { [weak self] in
+            await self?.fetchAll()
         }
     }
 
@@ -56,8 +70,8 @@ final class LibraryViewModel {
         await actions.fetchAll(repositories.map(\.path))
     }
 
-    /// Re-reads statuses (and the open details) after an action changed `paths`.
-    private func repositoriesChanged(_ paths: [String]) async {
+    /// Re-reads statuses (and the open details) of the repositories at `paths`.
+    func repositoriesChanged(_ paths: [String]) async {
         await statuses.refresh(paths)
         if let selectedPath, paths.contains(selectedPath) {
             await detail.reload()
@@ -114,6 +128,7 @@ final class LibraryViewModel {
         } catch {
             report(error, message: String(localized: "Couldn't load your folders."))
         }
+        autoRefresh?.update(folders: folders.map(\.path), repositories: repositories.map(\.path))
     }
 
     /// Adds folders that aren't already tracked and scans them.
