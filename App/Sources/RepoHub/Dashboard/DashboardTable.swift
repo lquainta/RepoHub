@@ -7,6 +7,7 @@ import SwiftUI
 struct DashboardTable: View {
     let rows: [DashboardRow]
     let refreshing: Set<String>
+    let actions: RepositoryActions
     @Binding var selection: String?
 
     @SceneStorage("dashboard.sort") private var savedSort = DashboardSort.default
@@ -68,6 +69,13 @@ struct DashboardTable: View {
             }
             .width(min: 90, ideal: 120)
             .customizationID(DashboardColumn.lastCommit.rawValue)
+        }
+        .contextMenu(forSelectionType: String.self) { paths in
+            RepositoryMenu(actions: actions, paths: Array(paths).sorted())
+        } primaryAction: { paths in
+            if let path = paths.first {
+                Task { await actions.openInEditor(path) }
+            }
         }
         .onAppear { sortOrder = savedSort.comparators }
         .onChange(of: sortOrder) { _, newValue in

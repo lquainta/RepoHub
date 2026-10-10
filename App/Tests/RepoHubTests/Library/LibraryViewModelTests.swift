@@ -157,6 +157,28 @@ struct LibraryViewModelStatusTests {
         }
     }
 
+    @Test("Fetch All refreshes the status of every repository")
+    func fetchAllRefreshesStatus() async throws {
+        let git = FakeGit()
+        let store = LibraryStore(container: try Persistence.makeInMemoryContainer())
+        let scanner = FakeScanner(results: ["/dev": .success([URL(fileURLWithPath: "/dev/api")])])
+        let model = LibraryViewModel(
+            store: store,
+            scanner: scanner,
+            statuses: StatusMonitor(git: git),
+            detail: RepositoryDetailModel(git: git),
+            actions: RepositoryActions(git: git, workspace: FakeWorkspace())
+        )
+        await model.addFolders([URL(fileURLWithPath: "/dev")])
+
+        let behind = RepoStatus(head: .branch("main"), upstream: "origin/main", behind: 2)
+        await git.setResult(.success(behind), for: "/dev/api")
+        await model.fetchAll()
+
+        #expect(await git.actionLog == ["fetch /dev/api"])
+        #expect(model.rows.first?.status == behind)
+    }
+
     @Test("Removing the selected repository's folder clears the selection")
     func removeClearsSelection() async throws {
         let model = try makeModel(git: FakeGit())

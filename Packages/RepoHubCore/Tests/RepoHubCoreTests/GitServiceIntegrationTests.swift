@@ -97,6 +97,41 @@ struct GitServiceIntegrationTests {
         )
     }
 
+    @Test("Fetch updates behind counts, pull fast-forwards, and diverged pulls fail without merging")
+    func fetchAndPull() async throws {
+        let origin = try await TemporaryRepository.make(bare: true)
+        let local = try await TemporaryRepository.make()
+        defer {
+            origin.remove()
+            local.remove()
+        }
+        try await local.commit("Initial commit")
+        try await local.git(["remote", "add", "origin", origin.url.path])
+        try await local.git(["push", "-q", "-u", "origin", "main"])
+        let other = try await TemporaryRepository.clone(origin)
+        defer { other.remove() }
+        try await other.commit("Remote one", file: "r1.txt")
+        try await other.git(["push", "-q", "origin", "main"])
+
+        #expect(try await service.status(of: local.url).behind == 0)
+        try await service.fetch(local.url)
+        #expect(try await service.status(of: local.url).behind == 1)
+
+        try await service.pull(local.url)
+        let pulled = try await service.status(of: local.url)
+        #expect(pulled.behind == 0 && pulled.lastCommit?.subject == "Remote one")
+
+        // Diverge: a local and a remote commit. Pull must refuse rather than merge.
+        try await other.commit("Remote two", file: "r2.txt")
+        try await other.git(["push", "-q", "origin", "main"])
+        try await local.commit("Local", file: "l.txt")
+        try await service.fetch(local.url)
+        await #expect(throws: GitError.self) { try await service.pull(local.url) }
+        let after = try await service.details(of: local.url)
+        #expect(after.recentCommits.first?.subject == "Local")
+        #expect(after.status.ahead == 1 && after.status.behind == 1)
+    }
+
     @Test("Directory that is not a repository throws notARepository")
     func notARepository() async throws {
         let directory = try TemporaryRepository.makeDirectory()

@@ -115,3 +115,44 @@ struct CommitListParserTests {
         #expect(commits.map(\.subject) == ["Ahead of upstream", "Initial commit"])
     }
 }
+
+@Suite("GitHubRepository")
+struct GitHubRepositoryTests {
+    @Test(
+        "Recognizes GitHub remote URLs",
+        arguments: [
+            "https://github.com/lquainta/RepoHub.git",
+            "https://github.com/lquainta/RepoHub",
+            "https://user@GitHub.com/lquainta/RepoHub/",
+            "git@github.com:lquainta/RepoHub.git",
+            "github.com:lquainta/RepoHub",
+            "ssh://git@github.com/lquainta/RepoHub.git",
+            "git://github.com/lquainta/RepoHub.git",
+        ]
+    )
+    func recognizes(url: String) {
+        #expect(GitHubRepository(remoteURL: url) == GitHubRepository(owner: "lquainta", name: "RepoHub"))
+    }
+
+    @Test(
+        "Rejects other hosts and malformed URLs",
+        arguments: [
+            "https://gitlab.com/o/r.git",
+            "git@github.example.com:o/r.git",
+            "https://github.com/o",
+            "https://github.com/o/r/tree/main",
+            "/local/path/repo.git",
+            "../origin.git",
+            "https://github.com/o/r%20x",
+            "",
+        ]
+    )
+    func rejects(url: String) {
+        #expect(GitHubRepository(remoteURL: url) == nil)
+    }
+
+    @Test("Web URL points at the repository page")
+    func webURL() {
+        #expect(GitHubRepository(owner: "o", name: "r.js").webURL.absoluteString == "https://github.com/o/r.js")
+    }
+}

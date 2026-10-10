@@ -19,6 +19,18 @@ struct LibraryView: View {
         }
         .toolbar {
             ToolbarItemGroup {
+                if let progress = model.actions.fetchAllProgress {
+                    ProgressView(value: Double(progress.completed), total: Double(progress.total)) {
+                        Text("Fetching \(progress.completed) of \(progress.total)")
+                    }
+                    .progressViewStyle(.linear)
+                    .frame(width: 140)
+                    .font(.caption)
+                }
+                Button("Fetch All", systemImage: "arrow.down.circle.dotted") {
+                    Task { await model.fetchAll() }
+                }
+                .disabled(model.repositories.isEmpty || model.actions.fetchAllProgress != nil)
                 if model.isScanning {
                     ProgressView()
                         .controlSize(.small)
@@ -54,6 +66,17 @@ struct LibraryView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(model.errorMessage ?? "")
+        }
+        .alert(
+            "Some actions failed",
+            isPresented: Binding(
+                get: { !model.actions.failures.isEmpty },
+                set: { if !$0 { model.actions.failures = [] } }
+            )
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(model.actions.failures.map { "\($0.repository): \($0.message)" }.joined(separator: "\n"))
         }
         .frame(minWidth: 960, minHeight: 480)
     }
@@ -106,7 +129,8 @@ private struct RepositoryList: View {
         } else {
             DashboardTable(
                 rows: model.rows,
-                refreshing: model.statuses.refreshing,
+                refreshing: model.statuses.refreshing.union(model.actions.busy),
+                actions: model.actions,
                 selection: Binding(
                     get: { model.selectedPath },
                     set: { path in Task { await model.select(path) } }
