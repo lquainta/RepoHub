@@ -24,7 +24,8 @@ jobs:
   analyze:
     name: Analyze (${{ matrix.language }})
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 30
+    # Usually 17–20 minutes; headroom for macOS runner variance (#124).
+    timeout-minutes: 45
     permissions:
       contents: read
       security-events: write
