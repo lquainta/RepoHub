@@ -35,4 +35,14 @@ Don't write tests for trivial getters, setters, or memberwise initializers.
 
 ## Coverage
 
-Code coverage is collected by `swift test --enable-code-coverage` and the Xcode scheme (`gatherCoverageData`). Reporting and the README badge are set up in #23.
+```sh
+make coverage    # writes coverage/core.lcov, coverage/backend.lcov, coverage/app.lcov and prints totals
+```
+
+| Flag | Measured by | Sources counted |
+| --- | --- | --- |
+| `core` | `RepoHubCore` package tests (`scripts/package-coverage.sh`) | `Packages/RepoHubCore/Sources` |
+| `backend` | Backend package tests | `Backend/Sources` (RepoHubCore excluded; it has its own flag) |
+| `app` | App unit tests (`scripts/app-coverage.sh`) | `App/Sources` |
+
+Tests, dependencies, and manifests are excluded. CI uploads each report to [Codecov](https://codecov.io/gh/lquainta/RepoHub) with its flag, writes the percentage to the job summary, and Codecov comments on PRs with the coverage diff. `codecov.yml` fails the `codecov/project` status if total coverage drops by more than 2%.

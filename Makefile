@@ -51,14 +51,23 @@ test-core: ## Test the RepoHubCore package
 test-backend: ## Test the Vapor backend
 	swift test --package-path $(BACKEND_DIR)
 
-# Set RESULT_BUNDLE=path/to/Result.xcresult to keep Xcode's test results.
-RESULT_BUNDLE_FLAG = $(if $(RESULT_BUNDLE),-resultBundlePath $(RESULT_BUNDLE))
+# Set RESULT_BUNDLE=path/to/Result.xcresult to keep Xcode's test results, and
+# DERIVED_DATA=dir to choose where Xcode builds (needed for app coverage).
+RESULT_BUNDLE_FLAG = $(if $(RESULT_BUNDLE),-resultBundlePath $(RESULT_BUNDLE)) \
+                     $(if $(DERIVED_DATA),-derivedDataPath $(DERIVED_DATA))
 
 test-app: generate ## Run the macOS app's unit tests
 	$(XCODEBUILD) test -skip-testing:RepoHubUITests $(RESULT_BUNDLE_FLAG)
 
 test-ui: generate ## Run the macOS app's UI tests (launches the app and drives it)
 	$(XCODEBUILD) test -only-testing:RepoHubUITests $(RESULT_BUNDLE_FLAG)
+
+.PHONY: coverage
+coverage: ## Run tests with coverage and write LCOV reports to coverage/
+	scripts/package-coverage.sh $(CORE_DIR) coverage/core.lcov
+	scripts/package-coverage.sh $(BACKEND_DIR) coverage/backend.lcov
+	$(MAKE) test-app DERIVED_DATA=build/DerivedData
+	scripts/app-coverage.sh build/DerivedData coverage/app.lcov
 
 .PHONY: lint lint-fix
 lint: ## Run SwiftLint in strict mode

@@ -20,6 +20,9 @@ jobs:
   core-macos:
     name: Core (macOS)
     runs-on: macos-26
+    permissions:
+      contents: read
+      id-token: write # Codecov OIDC upload, no stored token
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -28,8 +31,19 @@ jobs:
           key: core-macos-${{ hashFiles('Packages/RepoHubCore/Package.swift', 'Packages/RepoHubCore/Package.resolved') }}
       - name: Show toolchain
         run: xcodebuild -version && swift --version
-      - name: Test
-        run: make test-core
+      - name: Test with coverage
+        run: scripts/package-coverage.sh Packages/RepoHubCore coverage/core.lcov
+      - name: Coverage summary
+        run: |
+          percent=$(awk -F: '/^LF:/ {f += $2} /^LH:/ {h += $2} END {printf "%.1f%%", h * 100 / f}' coverage/core.lcov)
+          echo "**Core line coverage:** $percent" >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          files: coverage/core.lcov
+          flags: core
+          use_oidc: true
+          fail_ci_if_error: false
 
   core-linux:
     name: Core (Linux)
@@ -48,6 +62,9 @@ jobs:
   app:
     name: App (macOS)
     runs-on: macos-26
+    permissions:
+      contents: read
+      id-token: write # Codecov OIDC upload, no stored token
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Install XcodeGen ${{ env.XCODEGEN_VERSION }}
@@ -60,7 +77,20 @@ jobs:
       - name: Show toolchain
         run: xcodebuild -version && xcodegen --version
       - name: Build and test
-        run: make test-app RESULT_BUNDLE=build/app-unit.xcresult
+        run: make test-app RESULT_BUNDLE=build/app-unit.xcresult DERIVED_DATA=build/DerivedData
+      - name: Export coverage
+        run: scripts/app-coverage.sh build/DerivedData coverage/app.lcov
+      - name: Coverage summary
+        run: |
+          percent=$(awk -F: '/^LF:/ {f += $2} /^LH:/ {h += $2} END {printf "%.1f%%", h * 100 / f}' coverage/app.lcov)
+          echo "**App line coverage:** $percent" >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          files: coverage/app.lcov
+          flags: app
+          use_oidc: true
+          fail_ci_if_error: false
       - name: Report test failures
         if: failure()
         run: scripts/xcresult-failures.sh build/app-unit.xcresult
@@ -93,8 +123,14 @@ jobs:
         if: failure()
         run: |
           log show --last 15m --style compact --predicate 'process == "RepoHub"' | tail -n 150 || true
-          ls -1 ~/Library/Logs/DiagnosticReports/ 2>/dev/null | grep -i repohub || echo "No RepoHub crash reports"
-          for report in ~/Library/Logs/DiagnosticReports/RepoHub*; do [ -f "$report" ] && head -n 60 "$report"; done || true
+          found=false
+          for report in ~/Library/Logs/DiagnosticReports/RepoHub*; do
+            [ -f "$report" ] || continue
+            found=true
+            echo "== $report"
+            head -n 60 "$report"
+          done
+          $found || echo "No RepoHub crash reports"
       - name: Upload test results
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -106,6 +142,9 @@ jobs:
   backend:
     name: Backend (Linux)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # Codecov OIDC upload, no stored token
     container:
       image: swift:6.4-noble
     steps:
@@ -115,10 +154,22 @@ jobs:
           path: Backend/.build
           key: backend-linux-${{ hashFiles('Backend/Package.resolved') }}
           restore-keys: backend-linux-
-      - name: Build
-        run: swift build --package-path Backend --build-tests
-      - name: Test
-        run: swift test --package-path Backend --skip-build
+      - name: Test with coverage
+        run: scripts/package-coverage.sh Backend coverage/backend.lcov
+      - name: Coverage summary
+        run: |
+          percent=$(awk -F: '/^LF:/ {f += $2} /^LH:/ {h += $2} END {printf "%.1f%%", h * 100 / f}' coverage/backend.lcov)
+          echo "**Backend line coverage:** $percent" >> "$GITHUB_STEP_SUMMARY"
+      - name: Install Codecov uploader dependencies
+        # The Swift image lacks gpg, which codecov-action needs to verify its uploader.
+        run: apt-get update -qq && apt-get install -y -qq --no-install-recommends curl gnupg
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          files: coverage/backend.lcov
+          flags: backend
+          use_oidc: true
+          fail_ci_if_error: false
 
   devcontainer:
     name: DevContainer
