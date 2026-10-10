@@ -6,7 +6,7 @@
 
 ## Context and problem statement
 
-The backend stores users, devices and sessions, synced workspaces and repository groups, tracked repositories, activity snapshots, and received webhook events (schema designed in #29). The data is relational: users own workspaces, which own groups and repositories in a many-to-many relationship.
+The backend stores users, devices and sessions, synced workspaces and repository groups, tracked repositories, activity snapshots, and received webhook events (see the [database design](../architecture/database.md)). The data is relational: users own workspaces, which own groups and repositories in a many-to-many relationship.
 
 ## Decision drivers
 
