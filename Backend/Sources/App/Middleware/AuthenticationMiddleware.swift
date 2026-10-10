@@ -15,7 +15,7 @@ enum RequestContext {
 struct AuthenticationMiddleware: ServerMiddleware {
     /// Operations with `security: []` in openapi/openapi.yaml. A test keeps this in sync with the spec.
     static let publicOperations: Set<String> = [
-        "getHealth", "startDeviceSignIn", "pollDeviceSignIn", "refreshSession", "receiveGitHubWebhook",
+        "getHealth", "getReadiness", "startDeviceSignIn", "pollDeviceSignIn", "refreshSession", "receiveGitHubWebhook",
     ]
 
     let authenticate: @Sendable (String) async throws -> AuthenticatedUser?

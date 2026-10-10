@@ -13,6 +13,8 @@ protocol CacheStore: Sendable {
     /// Adds `member` to the set at `key` and (re)sets the set's expiry.
     func addToSet(_ key: String, member: String, expiresIn seconds: Int) async throws
     func members(ofSet key: String) async throws -> [String]
+    /// Fails if the cache can't be reached.
+    func ping() async throws
     /// Atomically adds 1 to the counter at `key` (starting at 0) and returns
     /// the new value. A new counter expires after `seconds`.
     func increment(_ key: String, expiresIn seconds: Int) async throws -> Int
@@ -45,6 +47,10 @@ struct RedisCacheStore: CacheStore {
 
     func members(ofSet key: String) async throws -> [String] {
         try await redis.smembers(of: RedisKey(key), as: String.self).get().compactMap { $0 }
+    }
+
+    func ping() async throws {
+        _ = try await redis.ping().get()
     }
 
     func increment(_ key: String, expiresIn seconds: Int) async throws -> Int {
@@ -102,6 +108,9 @@ actor InMemoryCacheStore: CacheStore {
         }
         return set.members.sorted()
     }
+
+    /// Always reachable: it's in the process.
+    func ping() async throws {}
 
     private struct Counter {
         var count: Int

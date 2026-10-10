@@ -44,6 +44,7 @@ private struct FailingCacheStore: CacheStore {
     func addToSet(_ key: String, member: String, expiresIn seconds: Int) async throws { throw Down() }
     func members(ofSet key: String) async throws -> [String] { throw Down() }
     func increment(_ key: String, expiresIn seconds: Int) async throws -> Int { throw Down() }
+    func ping() async throws { throw Down() }
 }
 
 /// A clock tests can advance.
