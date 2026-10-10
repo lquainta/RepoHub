@@ -65,7 +65,7 @@ extension Application {
             oauth: githubOAuth,
             tokens: security.tokens,
             cipher: security.cipher,
-            logger: logger
+            logger: contextLogger
         )
     }
 }
