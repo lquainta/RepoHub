@@ -15,14 +15,38 @@ final class LibraryViewModel {
     private(set) var isScanning = false
     /// A user-facing description of the most recent failure, if any.
     var errorMessage: String?
+    /// The git status of each repository.
+    let statuses: StatusMonitor
 
     private let store: LibraryStore
     private let scanner: any RepositoryScanning
     private let logger = Logger(subsystem: "com.lquainta.RepoHub", category: "Library")
 
-    init(store: LibraryStore, scanner: any RepositoryScanning = RepositoryScanner()) {
+    init(
+        store: LibraryStore,
+        scanner: any RepositoryScanning = RepositoryScanner(),
+        statuses: StatusMonitor? = nil
+    ) {
         self.store = store
         self.scanner = scanner
+        self.statuses = statuses ?? StatusMonitor()
+    }
+
+    /// Dashboard rows: every repository with its latest known status.
+    var rows: [DashboardRow] {
+        repositories.map { repository in
+            DashboardRow(
+                id: repository.path,
+                name: repository.name,
+                path: repository.path,
+                state: statuses.state(for: repository.path)
+            )
+        }
+    }
+
+    /// Reads the git status of every repository again.
+    func refreshStatuses() async {
+        await statuses.refresh(repositories.map(\.path))
     }
 
     /// Loads folders and repositories from the store.
@@ -59,11 +83,14 @@ final class LibraryViewModel {
             report(error, message: String(localized: "Couldn't remove \(folder.path)."))
         }
         load()
+        statuses.retain(only: Set(repositories.map(\.path)))
     }
 
-    /// Scans every folder again, picking up new repositories and dropping deleted ones.
+    /// Scans every folder again, picking up new repositories and dropping
+    /// deleted ones, then refreshes every repository's status.
     func rescanAll() async {
         await scan(folders)
+        await refreshStatuses()
     }
 
     /// Scans each folder in turn. A failure in one folder doesn't stop the others.
@@ -87,6 +114,10 @@ final class LibraryViewModel {
             }
         }
         load()
+        let paths = Set(repositories.map(\.path))
+        statuses.retain(only: paths)
+        // Read newly found repositories right away; known ones keep their status.
+        await statuses.refresh(repositories.map(\.path).filter { statuses.state(for: $0) == nil })
     }
 
     private func report(_ error: any Error, message: String) {

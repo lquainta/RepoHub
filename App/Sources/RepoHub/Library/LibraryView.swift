@@ -20,7 +20,7 @@ struct LibraryView: View {
                         .controlSize(.small)
                         .accessibilityLabel("Scanning")
                 }
-                Button("Rescan", systemImage: "arrow.clockwise") {
+                Button("Refresh", systemImage: "arrow.clockwise") {
                     Task { await model.rescanAll() }
                 }
                 .keyboardShortcut("r")
@@ -78,7 +78,7 @@ private struct FolderSidebar: View {
     }
 }
 
-/// Detail list of discovered repositories, or an empty state.
+/// The repository dashboard, or an empty state.
 private struct RepositoryList: View {
     let model: LibraryViewModel
     @Binding var isImporting: Bool
@@ -100,19 +100,7 @@ private struct RepositoryList: View {
                 description: Text("None of your folders contain git repositories.")
             )
         } else {
-            List(model.repositories) { repository in
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(repository.name)
-                        .font(.headline)
-                    Text(repository.path)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .truncationMode(.middle)
-                }
-                .accessibilityElement(children: .combine)
-                .accessibilityIdentifier("repository-\(repository.name)")
-            }
-            .accessibilityIdentifier("repositoryList")
+            DashboardTable(rows: model.rows, refreshing: model.statuses.refreshing)
         }
     }
 }

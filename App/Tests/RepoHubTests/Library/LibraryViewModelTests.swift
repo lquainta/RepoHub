@@ -25,7 +25,11 @@ struct LibraryViewModelTests {
 
     private func makeModel(_ results: [String: Result<[URL], ScanError>]) throws -> LibraryViewModel {
         let store = LibraryStore(container: try Persistence.makeInMemoryContainer())
-        return LibraryViewModel(store: store, scanner: FakeScanner(results: results))
+        return LibraryViewModel(
+            store: store,
+            scanner: FakeScanner(results: results),
+            statuses: StatusMonitor(git: FakeGit())
+        )
     }
 
     @Test("Adding folders scans them and lists their repositories")
@@ -78,9 +82,10 @@ struct LibraryViewModelTests {
     func loadRestoresState() async throws {
         let store = LibraryStore(container: try Persistence.makeInMemoryContainer())
         let scanner = FakeScanner(results: ["/dev": .success([url("/dev/api")])])
-        await LibraryViewModel(store: store, scanner: scanner).addFolders([url("/dev")])
+        await LibraryViewModel(store: store, scanner: scanner, statuses: StatusMonitor(git: FakeGit()))
+            .addFolders([url("/dev")])
 
-        let restored = LibraryViewModel(store: store, scanner: scanner)
+        let restored = LibraryViewModel(store: store, scanner: scanner, statuses: StatusMonitor(git: FakeGit()))
         restored.load()
         #expect(restored.folders.map(\.path) == ["/dev"])
         #expect(restored.repositories.map(\.name) == ["api"])
@@ -111,11 +116,59 @@ struct LibraryViewModelRescanTests {
             [URL(fileURLWithPath: "/dev/api"), URL(fileURLWithPath: "/dev/old")],
             [URL(fileURLWithPath: "/dev/api"), URL(fileURLWithPath: "/dev/new")],
         ])
-        let model = LibraryViewModel(store: store, scanner: scanner)
+        let model = LibraryViewModel(store: store, scanner: scanner, statuses: StatusMonitor(git: FakeGit()))
         await model.addFolders([URL(fileURLWithPath: "/dev")])
         #expect(model.repositories.map(\.name) == ["api", "old"])
 
         await model.rescanAll()
         #expect(model.repositories.map(\.name) == ["api", "new"])
+        #expect(Set(model.statuses.states.keys) == ["/dev/api", "/dev/new"])
+    }
+}
+
+@MainActor
+@Suite("LibraryViewModel statuses")
+struct LibraryViewModelStatusTests {
+    private func makeModel(git: FakeGit) throws -> LibraryViewModel {
+        let store = LibraryStore(container: try Persistence.makeInMemoryContainer())
+        let scanner = FakeScanner(results: [
+            "/dev": .success([URL(fileURLWithPath: "/dev/api"), URL(fileURLWithPath: "/dev/web")])
+        ])
+        return LibraryViewModel(store: store, scanner: scanner, statuses: StatusMonitor(git: git))
+    }
+
+    @Test("Scanning reads the status of every new repository and rows combine both")
+    func scanReadsStatus() async throws {
+        let dirty = RepoStatus(head: .branch("main"), changes: FileChangeCounts(untracked: 1))
+        let model = try makeModel(git: FakeGit(["/dev/web": .success(dirty)]))
+
+        await model.addFolders([URL(fileURLWithPath: "/dev")])
+
+        #expect(model.rows.map(\.name) == ["api", "web"])
+        #expect(model.rows.last?.status == dirty)
+        #expect(model.rows.allSatisfy { $0.state != nil })
+    }
+
+    @Test("Removing a folder forgets its repositories' statuses")
+    func removeForgetsStatus() async throws {
+        let model = try makeModel(git: FakeGit())
+        await model.addFolders([URL(fileURLWithPath: "/dev")])
+        let folder = try #require(model.folders.first)
+
+        model.remove(folder)
+
+        #expect(model.statuses.states.isEmpty)
+        #expect(model.rows.isEmpty)
+    }
+
+    @Test("Refreshing statuses reads every repository again")
+    func refreshReadsAll() async throws {
+        let git = FakeGit()
+        let model = try makeModel(git: git)
+        await model.addFolders([URL(fileURLWithPath: "/dev")])
+
+        await model.refreshStatuses()
+
+        #expect(await git.reads.sorted() == ["/dev/api", "/dev/api", "/dev/web", "/dev/web"])
     }
 }
