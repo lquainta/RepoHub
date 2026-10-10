@@ -7,10 +7,14 @@ import SwiftData
 /// remove entries.
 enum RepoHubMigrationPlan: SchemaMigrationPlan {
     static var schemas: [any VersionedSchema.Type] {
-        [SchemaV1.self]
+        [SchemaV1.self, SchemaV2.self]
     }
 
     static var stages: [MigrationStage] {
-        []
+        [migrateV1toV2]
     }
+
+    /// V2 only adds the `RepoGroup` model and an empty relationship, which
+    /// SwiftData can infer.
+    static let migrateV1toV2 = MigrationStage.lightweight(fromVersion: SchemaV1.self, toVersion: SchemaV2.self)
 }

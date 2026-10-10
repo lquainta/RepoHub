@@ -4,7 +4,7 @@ import SwiftData
 /// Creates the app's SwiftData container.
 enum Persistence {
     /// The schema for the current model version.
-    static let schema = Schema(versionedSchema: SchemaV1.self)
+    static let schema = Schema(versionedSchema: SchemaV2.self)
 
     /// Default on-disk location: `~/Library/Application Support/RepoHub/RepoHub.store`.
     static var defaultStoreURL: URL {

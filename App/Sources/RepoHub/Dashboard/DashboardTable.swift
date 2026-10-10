@@ -4,11 +4,13 @@ import SwiftUI
 /// The main dashboard: every tracked repository and its status in a sortable table.
 ///
 /// The sort and the column layout (visibility, order, widths) are remembered per window.
-struct DashboardTable: View {
+struct DashboardTable<ExtraMenu: View>: View {
     let rows: [DashboardRow]
     let refreshing: Set<String>
     let actions: RepositoryActions
     @Binding var selection: String?
+    /// More context menu items for the clicked repositories (such as groups).
+    @ViewBuilder let extraMenu: ([String]) -> ExtraMenu
 
     @SceneStorage("dashboard.sort") private var savedSort = DashboardSort.default
     @SceneStorage("dashboard.columns") private var columnCustomization = TableColumnCustomization<DashboardRow>()
@@ -16,7 +18,7 @@ struct DashboardTable: View {
 
     var body: some View {
         Table(
-            rows.sorted(using: sortOrder),
+            of: DashboardRow.self,
             selection: $selection,
             sortOrder: $sortOrder,
             columnCustomization: $columnCustomization
@@ -69,9 +71,16 @@ struct DashboardTable: View {
             }
             .width(min: 90, ideal: 120)
             .customizationID(DashboardColumn.lastCommit.rawValue)
+        } rows: {
+            ForEach(rows.sorted(using: sortOrder)) { row in
+                // Dragging a row onto a sidebar group adds it to the group.
+                TableRow(row).draggable(row.id)
+            }
         }
         .contextMenu(forSelectionType: String.self) { paths in
             RepositoryMenu(actions: actions, paths: Array(paths).sorted())
+            Divider()
+            extraMenu(Array(paths).sorted())
         } primaryAction: { paths in
             if let path = paths.first {
                 Task { await actions.openInEditor(path) }

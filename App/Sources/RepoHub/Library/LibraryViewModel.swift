@@ -23,8 +23,14 @@ final class LibraryViewModel {
     let actions: RepositoryActions
     /// Path of the selected repository, if any.
     private(set) var selectedPath: String?
+    /// User-defined groups, oldest first.
+    private(set) var groups: [RepoGroup] = []
+    /// What the sidebar is showing.
+    var scope: SidebarScope = .all
+    /// Search text and quick filters applied to the dashboard.
+    var filter = RepositoryFilter()
 
-    private let store: LibraryStore
+    let store: LibraryStore
     private let scanner: any RepositoryScanning
     private let logger = Logger(subsystem: "com.lquainta.RepoHub", category: "Library")
 
@@ -76,9 +82,22 @@ final class LibraryViewModel {
                 id: repository.path,
                 name: repository.name,
                 path: repository.path,
-                state: statuses.state(for: repository.path)
+                state: statuses.state(for: repository.path),
+                facts: statuses.facts[repository.path]
             )
         }
+    }
+
+    /// Rows in the sidebar's scope that match the search and filters.
+    var visibleRows: [DashboardRow] {
+        let inScope: Set<String>? =
+            switch scope {
+            case .all: nil
+            case .group(let name): Set(groups.first { $0.name == name }?.repositories.map(\.path) ?? [])
+            case .folder(let path): Set(repositories.filter { $0.folder?.path == path }.map(\.path))
+            }
+        let scoped = inScope.map { paths in rows.filter { paths.contains($0.id) } } ?? rows
+        return filter.apply(to: scoped)
     }
 
     /// Reads the git status of every repository again.
@@ -91,6 +110,7 @@ final class LibraryViewModel {
         do {
             folders = try store.scanFolders()
             repositories = try store.repositories()
+            groups = try store.groups()
         } catch {
             report(error, message: String(localized: "Couldn't load your folders."))
         }
@@ -120,6 +140,9 @@ final class LibraryViewModel {
             report(error, message: String(localized: "Couldn't remove \(folder.path)."))
         }
         load()
+        if scope == .folder(folder.path) {
+            scope = .all
+        }
         statuses.retain(only: Set(repositories.map(\.path)))
         if selectedRepository == nil {
             selectedPath = nil
@@ -165,7 +188,7 @@ final class LibraryViewModel {
         await statuses.refresh(repositories.map(\.path).filter { statuses.state(for: $0) == nil })
     }
 
-    private func report(_ error: any Error, message: String) {
+    func report(_ error: any Error, message: String) {
         logger.error("\(message, privacy: .public) \(error.localizedDescription, privacy: .public)")
         errorMessage = message
     }

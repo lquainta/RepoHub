@@ -81,7 +81,7 @@ struct PersistenceTests {
 
     @Test("The migration plan ends at the schema the app uses")
     func migrationPlanIsCurrent() {
-        #expect(RepoHubMigrationPlan.schemas.last == SchemaV1.self)
-        #expect(Persistence.schema.version == SchemaV1.versionIdentifier)
+        #expect(RepoHubMigrationPlan.schemas.last == SchemaV2.self)
+        #expect(Persistence.schema.version == SchemaV2.versionIdentifier)
     }
 }

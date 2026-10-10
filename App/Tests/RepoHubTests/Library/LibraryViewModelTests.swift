@@ -227,3 +227,82 @@ struct LibraryViewModelStatusTests {
         #expect(await git.reads.sorted() == ["/dev/api", "/dev/api", "/dev/web", "/dev/web"])
     }
 }
+
+@MainActor
+@Suite("LibraryViewModel scope and groups")
+struct LibraryViewModelScopeTests {
+    private func makeModel() async throws -> LibraryViewModel {
+        let store = LibraryStore(container: try Persistence.makeInMemoryContainer())
+        let scanner = FakeScanner(results: [
+            "/dev": .success([URL(fileURLWithPath: "/dev/api"), URL(fileURLWithPath: "/dev/web")]),
+            "/school": .success([URL(fileURLWithPath: "/school/cs471")]),
+        ])
+        let git = FakeGit()
+        let model = LibraryViewModel(
+            store: store,
+            scanner: scanner,
+            statuses: StatusMonitor(git: git, staleBranchDays: { nil }),
+            detail: RepositoryDetailModel(git: git),
+            actions: RepositoryActions(git: git, workspace: FakeWorkspace())
+        )
+        await model.addFolders([URL(fileURLWithPath: "/dev"), URL(fileURLWithPath: "/school")])
+        return model
+    }
+
+    @Test("Scope limits rows to a group or folder, and search applies within it")
+    func scope() async throws {
+        let model = try await makeModel()
+        #expect(model.createGroup(named: "Work", adding: ["/dev/api", "/school/cs471"]))
+
+        model.scope = .group("Work")
+        #expect(model.visibleRows.map(\.name) == ["api", "cs471"])
+        model.filter.searchText = "cs"
+        #expect(model.visibleRows.map(\.name) == ["cs471"])
+
+        model.filter = RepositoryFilter()
+        model.scope = .folder("/dev")
+        #expect(model.visibleRows.map(\.name) == ["api", "web"])
+        #expect(model.groupNames(containing: "/dev/api") == ["Work"])
+    }
+
+    @Test("Renaming the selected group keeps it selected; deleting it shows all repositories")
+    func renameAndDelete() async throws {
+        let model = try await makeModel()
+        model.createGroup(named: "Work", adding: ["/dev/api"])
+        model.scope = .group("Work")
+
+        model.renameGroup("Work", to: "Job")
+        #expect(model.scope == .group("Job"))
+        #expect(model.visibleRows.map(\.name) == ["api"])
+
+        model.deleteGroup("Job")
+        #expect(model.scope == .all)
+        #expect(model.visibleRows.count == 3)
+    }
+
+    @Test("A duplicate group name is reported instead of created")
+    func duplicateReported() async throws {
+        let model = try await makeModel()
+        model.createGroup(named: "Work")
+        #expect(!model.createGroup(named: "work"))
+        #expect(model.errorMessage != nil)
+        #expect(model.groups.count == 1)
+    }
+
+    @Test("Removing the folder being viewed returns to all repositories")
+    func removeScopedFolder() async throws {
+        let model = try await makeModel()
+        model.scope = .folder("/school")
+        model.remove(try #require(model.folders.first { $0.path == "/school" }))
+        #expect(model.scope == .all)
+    }
+
+    @Test("Filters use facts read with the status")
+    func factsReachRows() async throws {
+        let model = try await makeModel()
+        model.filter.quickFilters = [.noRemote]
+        #expect(model.visibleRows.isEmpty)
+        model.filter.quickFilters = []
+        #expect(model.rows.allSatisfy { $0.facts == RepositoryFacts(remoteCount: 1, staleBranchCount: 0) })
+    }
+}

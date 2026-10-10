@@ -5,19 +5,24 @@ import UniformTypeIdentifiers
 struct LibraryView: View {
     @Bindable var model: LibraryViewModel
     @State private var isImporting = false
+    @State private var groupPrompt: GroupPrompt?
 
     var body: some View {
         NavigationSplitView {
-            FolderSidebar(model: model, isImporting: $isImporting)
+            LibrarySidebar(model: model, groupPrompt: $groupPrompt)
                 .navigationSplitViewColumnWidth(min: 180, ideal: 220)
         } content: {
-            RepositoryList(model: model, isImporting: $isImporting)
+            RepositoryList(model: model, isImporting: $isImporting, groupPrompt: $groupPrompt)
                 .navigationSplitViewColumnWidth(min: 420, ideal: 640)
+                .searchable(text: $model.filter.searchText, placement: .toolbar, prompt: "Name, path, or branch")
         } detail: {
             RepositoryDetailView(model: model.detail, name: model.selectedRepository?.name)
                 .navigationSplitViewColumnWidth(min: 280, ideal: 360)
         }
         .toolbar {
+            ToolbarItem {
+                QuickFilterMenu(filters: $model.filter.quickFilters)
+            }
             ToolbarItemGroup {
                 if let progress = model.actions.fetchAllProgress {
                     ProgressView(value: Double(progress.completed), total: Double(progress.total)) {
@@ -86,30 +91,8 @@ struct LibraryView: View {
         } message: {
             Text(model.actions.failures.map { "\($0.repository): \($0.message)" }.joined(separator: "\n"))
         }
+        .modifier(GroupNameAlert(prompt: $groupPrompt, model: model))
         .frame(minWidth: 960, minHeight: 480)
-    }
-}
-
-/// Sidebar listing scan folders.
-private struct FolderSidebar: View {
-    let model: LibraryViewModel
-    @Binding var isImporting: Bool
-
-    var body: some View {
-        List {
-            Section("Folders") {
-                ForEach(model.folders) { folder in
-                    Label(URL(fileURLWithPath: folder.path).lastPathComponent, systemImage: "folder")
-                        .help(folder.path)
-                        .contextMenu {
-                            Button("Remove Folder", role: .destructive) {
-                                model.remove(folder)
-                            }
-                        }
-                }
-            }
-        }
-        .accessibilityIdentifier("folderList")
     }
 }
 
@@ -117,8 +100,10 @@ private struct FolderSidebar: View {
 private struct RepositoryList: View {
     let model: LibraryViewModel
     @Binding var isImporting: Bool
+    @Binding var groupPrompt: GroupPrompt?
 
     var body: some View {
+        let rows = model.visibleRows
         if model.folders.isEmpty {
             ContentUnavailableView {
                 Label("No Folders", systemImage: "folder.badge.plus")
@@ -134,16 +119,33 @@ private struct RepositoryList: View {
                 systemImage: "magnifyingglass",
                 description: Text("None of your folders contain git repositories.")
             )
+        } else if rows.isEmpty && model.filter.isActive {
+            ContentUnavailableView {
+                Label("No Matches", systemImage: "line.3.horizontal.decrease.circle")
+            } description: {
+                Text("No repositories here match your search and filters.")
+            } actions: {
+                Button("Clear Search and Filters") { model.filter = RepositoryFilter() }
+            }
+            .accessibilityIdentifier("noMatches")
+        } else if rows.isEmpty, case .group(let name) = model.scope {
+            ContentUnavailableView(
+                "\(name) Is Empty",
+                systemImage: "tag",
+                description: Text("Right-click a repository and choose Add to Group, or drag it here.")
+            )
         } else {
             DashboardTable(
-                rows: model.rows,
+                rows: rows,
                 refreshing: model.statuses.refreshing.union(model.actions.busy),
                 actions: model.actions,
                 selection: Binding(
                     get: { model.selectedPath },
                     set: { path in Task { await model.select(path) } }
                 )
-            )
+            ) { paths in
+                GroupMenu(model: model, paths: paths, groupPrompt: $groupPrompt)
+            }
         }
     }
 }

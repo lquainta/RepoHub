@@ -60,9 +60,85 @@ final class LibraryStore {
         try context.save()
     }
 
+    // MARK: - Groups
+
+    /// All groups, oldest first.
+    func groups() throws -> [RepoGroup] {
+        try context.fetch(FetchDescriptor<RepoGroup>(sortBy: [SortDescriptor(\.createdAt)]))
+    }
+
+    /// Creates a group named `name` (trimmed).
+    ///
+    /// - Throws: ``GroupError`` if the name is empty or already used.
+    @discardableResult
+    func createGroup(named name: String) throws -> RepoGroup {
+        let name = try validatedGroupName(name, excluding: nil)
+        let group = RepoGroup(name: name)
+        context.insert(group)
+        try context.save()
+        return group
+    }
+
+    /// Renames `group`.
+    ///
+    /// - Throws: ``GroupError`` if the name is empty or used by another group.
+    func rename(_ group: RepoGroup, to name: String) throws {
+        group.name = try validatedGroupName(name, excluding: group)
+        try context.save()
+    }
+
+    /// Deletes `group`. Its repositories stay tracked.
+    func deleteGroup(_ group: RepoGroup) throws {
+        context.delete(group)
+        try context.save()
+    }
+
+    /// Adds the repositories at `paths` to `group`; ones already in it are ignored.
+    func add(_ paths: [String], to group: RepoGroup) throws {
+        let members = Set(group.repositories.map(\.path))
+        for repository in try repositories() where paths.contains(repository.path) && !members.contains(repository.path)
+        {
+            group.repositories.append(repository)
+        }
+        try context.save()
+    }
+
+    /// Removes the repositories at `paths` from `group`.
+    func remove(_ paths: [String], from group: RepoGroup) throws {
+        group.repositories.removeAll { paths.contains($0.path) }
+        try context.save()
+    }
+
+    private func validatedGroupName(_ name: String, excluding group: RepoGroup?) throws -> String {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            throw GroupError.emptyName
+        }
+        let taken = try groups().contains {
+            $0 !== group && $0.name.localizedCaseInsensitiveCompare(trimmed) == .orderedSame
+        }
+        guard !taken else {
+            throw GroupError.duplicateName(trimmed)
+        }
+        return trimmed
+    }
+
     private func folder(atPath path: String) throws -> ScanFolder? {
         var descriptor = FetchDescriptor<ScanFolder>(predicate: #Predicate { $0.path == path })
         descriptor.fetchLimit = 1
         return try context.fetch(descriptor).first
+    }
+}
+
+/// Why a group couldn't be created or renamed.
+enum GroupError: LocalizedError, Equatable {
+    case emptyName
+    case duplicateName(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .emptyName: String(localized: "A group needs a name.")
+        case .duplicateName(let name): String(localized: "There's already a group named \(name).")
+        }
     }
 }

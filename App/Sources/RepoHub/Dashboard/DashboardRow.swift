@@ -13,6 +13,8 @@ struct DashboardRow: Identifiable, Equatable {
     let path: String
     /// The latest known status, or `nil` if it hasn't been read yet.
     let state: RepositoryStatusState?
+    /// Remote and stale-branch counts, or `nil` if unknown.
+    var facts: RepositoryFacts?
 
     /// The status, if it was read successfully.
     var status: RepoStatus? {
