@@ -27,6 +27,9 @@ final class StatusMonitor {
     private(set) var states: [String: RepositoryStatusState] = [:]
     /// Paths whose status is being read right now.
     private(set) var refreshing: Set<String> = []
+    /// Paths asked to refresh while already refreshing; read again once the current read finishes,
+    /// so a change made during a read isn't missed.
+    private var requestedAgain: Set<String> = []
     /// Remote and stale-branch counts per path, read along with the status.
     private(set) var facts: [String: RepositoryFacts] = [:]
 
@@ -60,6 +63,7 @@ final class StatusMonitor {
     /// `maxConcurrentReads` at a time. Previous results stay visible until
     /// they're replaced.
     func refresh(_ paths: [String]) async {
+        requestedAgain.formUnion(paths.filter { refreshing.contains($0) })
         let pending = paths.filter { !refreshing.contains($0) }
         guard !pending.isEmpty else {
             return
@@ -95,6 +99,12 @@ final class StatusMonitor {
         }
         // Anything not reached (cancellation) is no longer refreshing.
         refreshing.subtract(pending)
+
+        let again = requestedAgain.intersection(pending)
+        requestedAgain.subtract(again)
+        if !again.isEmpty, !Task.isCancelled {
+            await refresh(Array(again))
+        }
     }
 
     /// Drops cached states for repositories that are no longer tracked.
