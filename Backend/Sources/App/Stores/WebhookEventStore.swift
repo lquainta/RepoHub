@@ -18,6 +18,12 @@ struct FluentWebhookEventStore: WebhookEventStore {
     let database: any Database
 
     func insertIfNew(_ event: WebhookEvent) async throws -> Bool {
+        // Check first: inside a transaction, a failed insert would abort the
+        // whole transaction. The unique constraint still guards concurrent inserts.
+        let existing = try await WebhookEvent.query(on: database).filter(\.$deliveryID == event.deliveryID).count()
+        guard existing == 0 else {
+            return false
+        }
         do {
             try await event.create(on: database)
             return true

@@ -41,6 +41,7 @@ The backend runs in one of three [Vapor environments](https://docs.vapor.codes/b
 - **Tests can't touch other databases.** Integration tests use only `TEST_DATABASE_URL`, never `DATABASE_URL`. They **refuse to run unless the database name ends in `_test`**, because each test migrates a fresh schema and drops every table afterwards. Without `TEST_DATABASE_URL`, they're skipped.
 - **Each test database is reset per run:** every integration test reverts leftovers, migrates an empty schema, and reverts it afterwards.
 - **Production TLS:** in production, database TLS is required unless the URL sets `sslmode` (see `.env.sample`).
+- **Sample data:** `make seed` (`swift run App seed`) fills a development database with two users, five repositories (GitHub and non-GitHub), three groups, 30 days of snapshots, and webhook events. It's idempotent, refuses `--env production`, and runs when the DevContainer is created. Seeded GitHub tokens are placeholder bytes, not real tokens.
 - **Test databases already exist** in the DevContainer and docker compose: `repohub_test` is created by `.devcontainer/postgres-init/`, next to `repohub_dev`.
 
 ## Adding a variable

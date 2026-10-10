@@ -8,6 +8,8 @@ import VaporTesting
 @testable import App
 
 /// Migrations and stores against a real PostgreSQL database (`TEST_DATABASE_URL`).
+///
+/// Serialized, including nested suites: every test migrates and reverts the same database.
 @Suite("Database", .serialized, .tags(.integration), .enabled(if: TestDatabase.isAvailable))
 struct DatabaseIntegrationTests {
     private let expectedTables: Set<String> = [
@@ -292,5 +294,48 @@ struct DatabaseIntegrationTests {
 
     private static func event(_ id: String, at date: Date) -> WebhookEvent {
         WebhookEvent(deliveryID: id, event: "push", repoFullName: "o/r", payload: .object([:]), receivedAt: date)
+    }
+}
+
+// Nested so the parent suite's `.serialized` trait covers it: every test that
+// migrates the shared test database must run one at a time.
+extension DatabaseIntegrationTests {
+    @Suite("Seed data")
+    struct SeedDataTests {
+        @Test("Seeding fills every table and running it again changes nothing")
+        func idempotent() async throws {
+            try await withMigratedApp { app in
+                let today = try Date("2026-10-09T12:00:00Z", strategy: .iso8601)
+                let first = try await SeedData.seed(on: app.db, today: today)
+                let counts = try await Self.counts(app.db)
+                #expect(
+                    first == SeedData.Summary(users: 2, repositories: 5, groups: 3, snapshots: 150, webhookEvents: 2)
+                )
+                #expect(counts == [2, 2, 5, 3, 4, 150, 2])
+
+                try await SeedData.seed(on: app.db, today: today)
+                #expect(try await Self.counts(app.db) == counts)
+            }
+        }
+
+        @Test("The seed command refuses production")
+        func refusesProduction() throws {
+            #expect(throws: SeedError.productionRefused) { try SeedCommand.ensureAllowed(in: .production) }
+            try SeedCommand.ensureAllowed(in: .development)
+            try SeedCommand.ensureAllowed(in: .testing)
+        }
+
+        /// Row counts: users, workspaces, repositories, groups, memberships, snapshots, webhook events.
+        private static func counts(_ database: any Database) async throws -> [Int] {
+            [
+                try await User.query(on: database).count(),
+                try await Workspace.query(on: database).count(),
+                try await TrackedRepo.query(on: database).count(),
+                try await RepoGroup.query(on: database).count(),
+                try await RepoGroupMember.query(on: database).count(),
+                try await RepoSnapshot.query(on: database).count(),
+                try await WebhookEvent.query(on: database).count(),
+            ]
+        }
     }
 }
