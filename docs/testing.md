@@ -28,6 +28,12 @@ RepoHub has three kinds of tests. Every PR must keep all of them green in CI.
   TEST_DATABASE_URL=postgres://repohub:repohub@localhost:5433/repohub_test make test-backend
   ```
 
+- **Redis integration tests** read `TEST_REDIS_URL` and are skipped without it. They use unique keys and never flush, so the development Redis is fine:
+
+  ```sh
+  TEST_REDIS_URL=redis://localhost:6379 make test-backend
+  ```
+
 - **Git integration tests** (`RepoHubCore`, tagged `.integration`) run the real `git` binary against temporary repositories created by `TemporaryRepository`. That helper isolates them from your git config (`GIT_CONFIG_GLOBAL=/dev/null`, a fixed identity) and removes them afterwards. They cover:
   - scanning a tree of real repositories: linked worktrees found; submodules and bare repositories skipped
   - status of fresh, committed, and dirty repositories

@@ -169,8 +169,14 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U repohub -d repohub_test"
           --health-interval 5s --health-timeout 3s --health-retries 10
+      redis:
+        image: redis:8.10-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 10
     env:
       TEST_DATABASE_URL: postgres://repohub:repohub@postgres:5432/repohub_test
+      TEST_REDIS_URL: redis://redis:6379
       MIGRATION_CHECK_URL: postgres://repohub:repohub@postgres:5432/repohub_migrations
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -185,7 +191,7 @@ jobs:
         run: |
           psql "$TEST_DATABASE_URL" -qc "CREATE DATABASE repohub_migrations"
           DATABASE_URL="$MIGRATION_CHECK_URL" scripts/check-migrations.sh
-      - name: Test with coverage (unit and PostgreSQL integration tests)
+      - name: Test with coverage (unit, PostgreSQL, and Redis integration tests)
         run: scripts/package-coverage.sh Backend coverage/backend.lcov
       - name: Coverage summary
         run: |
@@ -222,8 +228,12 @@ jobs:
       - name: Smoke test the image
         run: |
           # /health doesn't touch the database, so a placeholder URL is enough.
+          # Production settings are required, so pass throwaway values. Nothing
+          # here connects to Redis: it's only checked by /ready.
           docker run -d --name api -p 8080:8080 \
-            -e "DATABASE_URL=postgres://repohub@localhost:5432/unused?sslmode=disable" repohub-backend:ci
+            -e "DATABASE_URL=postgres://repohub@localhost:5432/unused?sslmode=disable" \
+            -e "REDIS_URL=redis://localhost:6379" \
+            repohub-backend:ci
           for _ in $(seq 1 30); do curl -fsS localhost:8080/health && break; sleep 1; done
           curl -fsS localhost:8080/health | grep -q '"status":"ok"'
           curl -fsS localhost:8080/health | grep -q "\"commit\":\"${GITHUB_SHA}\""

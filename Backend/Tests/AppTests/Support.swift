@@ -38,6 +38,15 @@ enum TestDatabase {
     }
 }
 
+/// Test Redis settings.
+enum TestRedis {
+    /// The Redis integration tests use, from `TEST_REDIS_URL`. Tests use unique keys
+    /// and never flush, so a shared development Redis is safe.
+    static let url = ProcessInfo.processInfo.environment["TEST_REDIS_URL"]
+
+    static var isAvailable: Bool { url != nil }
+}
+
 /// Runs `body` with an app connected to the test database, with every
 /// migration applied. Leftovers from a crashed run are reverted first, and
 /// everything is reverted afterwards, so each test starts from an empty schema.
