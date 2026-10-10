@@ -1,0 +1,5 @@
+# Backend overrides for the root .swiftlint.yml.
+disabled_rules:
+  # Fluent's `query.filter(...).first()` runs a SQL query with LIMIT 1; it is
+  # not `Collection.filter { }.first`, which this rule is meant to catch.
+  - first_where

@@ -3,9 +3,9 @@ import VaporTesting
 
 @testable import App
 
-/// Configures the app with the default environment reader.
+/// Configures the app without needing a running database.
 private func configureForTesting(_ app: Application) async throws {
-    try await configure(app)
+    try await configure(app, reader: TestDatabase.reader())
 }
 
 @Suite("App")
