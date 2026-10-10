@@ -1,3 +1,4 @@
+import Foundation
 import PostgresKit
 import PostgresNIO
 import Testing
@@ -126,7 +127,11 @@ struct ConfigurationTests {
 
     @Test("REDIS_URL is required in production, optional elsewhere, and must be a redis URL")
     func redisURL() throws {
-        let base = ["DATABASE_URL": databaseURL]
+        let key = Data(repeating: 1, count: 32).base64EncodedString()
+        let base = [
+            "DATABASE_URL": databaseURL, "JWT_SIGNING_KEY": key, "TOKEN_ENCRYPTION_KEY": key,
+            "GITHUB_CLIENT_ID": "Ov23li", "GITHUB_WEBHOOK_SECRET": "hook",
+        ]
         #expect(try AppConfig(reader: reader(base), environment: .development).redisURL == nil)
         #expect(throws: ConfigurationError.missing(key: "REDIS_URL")) {
             try AppConfig(reader: reader(base), environment: .production)

@@ -9,6 +9,8 @@ protocol UserStore: Sendable {
     func find(githubID: Int64) async throws -> User?
     /// Deletes the user and, through cascades, everything they own.
     func delete(id: UUID) async throws
+    /// Erases the stored GitHub token (after the last device signs out).
+    func clearGitHubToken(userID: UUID) async throws
 }
 
 /// The GitHub profile fields RepoHub keeps.
@@ -50,5 +52,13 @@ struct FluentUserStore: UserStore {
 
     func delete(id: UUID) async throws {
         try await User.query(on: database).filter(\.$id == id).delete()
+    }
+
+    func clearGitHubToken(userID: UUID) async throws {
+        try await User.query(on: database)
+            .filter(\.$id == userID)
+            .set(\.$githubTokenCiphertext, to: Data())
+            .set(\.$githubTokenScopes, to: "")
+            .update()
     }
 }

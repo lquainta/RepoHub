@@ -12,6 +12,8 @@ struct AppConfig: Sendable {
     /// Redis for the GitHub response cache. Required in production; elsewhere
     /// an in-memory cache is used when it's unset.
     let redisURL: String?
+    /// Authentication, webhook, and rate-limit settings.
+    let security: SecurityConfig
 
     /// Loads configuration using `reader`.
     init(reader: EnvironmentReader = EnvironmentReader(), environment: Environment = .development) throws {
@@ -21,6 +23,7 @@ struct AppConfig: Sendable {
         if let redisURL, URL(string: redisURL)?.scheme?.hasPrefix("redis") != true {
             throw ConfigurationError.invalid(key: "REDIS_URL", expected: "a redis:// or rediss:// URL")
         }
+        security = try SecurityConfig(reader: reader, environment: environment)
     }
 }
 
