@@ -134,7 +134,40 @@ struct LibraryViewModelStatusTests {
         let scanner = FakeScanner(results: [
             "/dev": .success([URL(fileURLWithPath: "/dev/api"), URL(fileURLWithPath: "/dev/web")])
         ])
-        return LibraryViewModel(store: store, scanner: scanner, statuses: StatusMonitor(git: git))
+        return LibraryViewModel(
+            store: store,
+            scanner: scanner,
+            statuses: StatusMonitor(git: git),
+            detail: RepositoryDetailModel(git: git)
+        )
+    }
+
+    @Test("Selecting a repository loads its details")
+    func selectLoadsDetails() async throws {
+        let model = try makeModel(git: FakeGit())
+        await model.addFolders([URL(fileURLWithPath: "/dev")])
+
+        await model.select("/dev/web")
+
+        #expect(model.selectedRepository?.name == "web")
+        #expect(model.detail.path == "/dev/web")
+        guard case .loaded = model.detail.state else {
+            Issue.record("Expected loaded details, got \(model.detail.state)")
+            return
+        }
+    }
+
+    @Test("Removing the selected repository's folder clears the selection")
+    func removeClearsSelection() async throws {
+        let model = try makeModel(git: FakeGit())
+        await model.addFolders([URL(fileURLWithPath: "/dev")])
+        await model.select("/dev/api")
+        let folder = try #require(model.folders.first)
+
+        model.remove(folder)
+
+        #expect(model.selectedPath == nil)
+        #expect(model.selectedRepository == nil)
     }
 
     @Test("Scanning reads the status of every new repository and rows combine both")

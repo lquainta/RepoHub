@@ -30,6 +30,36 @@ struct PorcelainStatusParserTests {
         #expect(!status.isClean)
     }
 
+    @Test("Changed files are listed per area, keeping spaces, unicode, and rename origins")
+    func dirtyFiles() throws {
+        let (status, files) = try PorcelainStatusParser.parseWithFiles(Fixture.gitOutput("dirty"))
+        #expect(status.changes == FileChangeCounts(staged: 4, unstaged: 2, untracked: 2, conflicted: 0))
+        #expect(
+            files == [
+                FileChange(path: "README.md", area: .staged, kind: .modified),
+                FileChange(path: "added.txt", area: .staged, kind: .added),
+                FileChange(path: "both.txt", area: .staged, kind: .modified),
+                FileChange(path: "both.txt", area: .unstaged, kind: .modified),
+                FileChange(path: "keep.txt", area: .unstaged, kind: .modified),
+                FileChange(path: "new name é.txt", originalPath: "old-name.txt", area: .staged, kind: .renamed),
+                FileChange(path: "untracked file.txt", area: .untracked, kind: .untracked),
+                FileChange(path: "ünïcode.txt", area: .untracked, kind: .untracked),
+            ]
+        )
+    }
+
+    @Test("Conflicted paths are listed as unmerged")
+    func conflictedFiles() throws {
+        let (_, files) = try PorcelainStatusParser.parseWithFiles(Fixture.gitOutput("conflicted"))
+        #expect(files == [FileChange(path: "c.txt", area: .conflicted, kind: .unmerged)])
+    }
+
+    @Test("Unknown change codes are rejected")
+    func unknownChangeCode() {
+        let output = "# branch.oid abc\0# branch.head main\01 X. N... 100644 100644 100644 a b f.txt\0"
+        #expect(throws: GitError.self) { try PorcelainStatusParser.parseWithFiles(output) }
+    }
+
     @Test("Unmerged paths are counted as conflicts and branch without upstream has no ahead/behind")
     func conflicted() throws {
         let status = try PorcelainStatusParser.parse(Fixture.gitOutput("conflicted"))

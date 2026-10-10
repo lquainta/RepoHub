@@ -50,6 +50,39 @@ struct GitServiceTests {
         #expect(runner.invokedSubcommands == ["status"])
     }
 
+    @Test("Details combine status, files, branches, commits, remotes, and stashes")
+    func details() async throws {
+        let runner = FakeGitRunner([
+            "status": .success(try Fixture.gitOutput("dirty")),
+            "for-each-ref": .success(try Fixture.gitOutput("for-each-ref")),
+            "remote": .success(try Fixture.gitOutput("remote-v")),
+            "stash": .success(try Fixture.gitOutput("stash-list")),
+            "log": .success(try Fixture.gitOutput("log-recent")),
+        ])
+        let details = try await GitService(runner: runner).details(of: repo)
+        #expect(details.files.count == 8)
+        #expect(details.branches.count == 6)
+        #expect(details.remotes.map(\.name) == ["origin", "upstream"])
+        #expect(details.stashes.count == 2)
+        #expect(details.recentCommits.count == 2)
+        #expect(details.status.lastCommit == details.recentCommits.first)
+        #expect(Set(runner.invokedSubcommands) == ["status", "for-each-ref", "remote", "stash", "log"])
+    }
+
+    @Test("Details skip git log for a repository with no commits")
+    func detailsUnborn() async throws {
+        let runner = FakeGitRunner([
+            "status": .success(try Fixture.gitOutput("unborn")),
+            "for-each-ref": .success(""),
+            "remote": .success(""),
+            "stash": .success(""),
+        ])
+        let details = try await GitService(runner: runner).details(of: repo)
+        #expect(details.recentCommits.isEmpty)
+        #expect(details.files == [FileChange(path: "file.txt", area: .untracked, kind: .untracked)])
+        #expect(!runner.invokedSubcommands.contains("log"))
+    }
+
     @Test("Propagates runner errors")
     func propagatesErrors() async {
         let runner = FakeGitRunner(["status": .failure(.notARepository(path: "/tmp/repo"))])

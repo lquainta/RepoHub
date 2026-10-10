@@ -1,0 +1,2 @@
+stash@{0}2026-10-01T09:30:00-06:00On main: Second stash
+stash@{1}2026-10-01T09:30:00-06:00On main: First stash

@@ -7,13 +7,19 @@ import SwiftUI
 struct DashboardTable: View {
     let rows: [DashboardRow]
     let refreshing: Set<String>
+    @Binding var selection: String?
 
     @SceneStorage("dashboard.sort") private var savedSort = DashboardSort.default
     @SceneStorage("dashboard.columns") private var columnCustomization = TableColumnCustomization<DashboardRow>()
     @State private var sortOrder = DashboardSort.default.comparators
 
     var body: some View {
-        Table(rows.sorted(using: sortOrder), sortOrder: $sortOrder, columnCustomization: $columnCustomization) {
+        Table(
+            rows.sorted(using: sortOrder),
+            selection: $selection,
+            sortOrder: $sortOrder,
+            columnCustomization: $columnCustomization
+        ) {
             TableColumn("Name", value: \.name) { row in
                 NameCell(row: row, isRefreshing: refreshing.contains(row.id))
             }
