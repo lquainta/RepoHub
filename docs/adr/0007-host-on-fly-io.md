@@ -34,7 +34,7 @@ Chosen option: **Fly.io**, as the app `repohub-backend` at <https://repohub-back
 - Good: Docker-native; the CLI works well in CI; automatic TLS; machine health checks and release rollback.
 - Good: Upstash Redis is provisioned through Fly, so there's no separate account.
 - Bad: the free allowance is small, and a card is required on the account.
-- Neutral: the exact Postgres offering (Managed Postgres or a self-managed Postgres app) and its backup setup are chosen in #42 and #34 and recorded there.
+- Neutral: the exact Postgres offering is chosen in [ADR 0010](0010-run-postgres-and-redis-on-fly.md) (#42), and backups in #34.
 
 ## Pros and cons of the options
 
