@@ -7,6 +7,7 @@ import SwiftUI
 struct RepoHubApp: App {
     private let container: ModelContainer
     @State private var library: LibraryViewModel
+    @State private var settings = SettingsModel()
     private let launchFolders: [URL]
 
     init() {
@@ -37,6 +38,10 @@ struct RepoHubApp: App {
         .modelContainer(container)
         .commands {
             RepositoryCommands(model: library)
+        }
+
+        Settings {
+            SettingsView(settings: settings, library: library)
         }
     }
 
