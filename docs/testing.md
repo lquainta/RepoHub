@@ -28,6 +28,15 @@ RepoHub has three kinds of tests. Every PR must keep all of them green in CI.
   TEST_DATABASE_URL=postgres://repohub:repohub@localhost:5433/repohub_test make test-backend
   ```
 
+- **Git integration tests** (`RepoHubCore`, tagged `.integration`) run the real `git` binary against temporary repositories created by `TemporaryRepository`. That helper isolates them from your git config (`GIT_CONFIG_GLOBAL=/dev/null`, a fixed identity) and removes them afterwards. They cover:
+  - scanning a tree of real repositories: linked worktrees found; submodules and bare repositories skipped
+  - status of fresh, committed, and dirty repositories
+  - ahead/behind against a bare `origin` after commits on another clone
+  - fetch, fast-forward pull, and a diverged pull that must not merge
+  - details: branches, commits, remotes, stashes
+  - stale-branch detection and safe or forced branch deletion, including on the remote
+  - process timeouts and cancellation
+
 - **UI tests** cover the main user flows end to end. Keep them few and focused. Use launch arguments to point the app at fixture repositories and a stubbed backend, never at the developer's real folders.
 
 Don't write tests for trivial getters, setters, or memberwise initializers.

@@ -132,6 +132,57 @@ struct GitServiceIntegrationTests {
         #expect(after.status.ahead == 1 && after.status.behind == 1)
     }
 
+    @Test("Scanning real repositories finds working trees, linked worktrees, and not submodules or bare repositories")
+    func scanRealRepositories() async throws {
+        let root = try TemporaryRepository.makeDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let git = TemporaryRepository.isolatedRunner
+        func run(_ arguments: [String], in directory: URL) async throws {
+            _ = try await git.run(arguments, in: directory)
+        }
+
+        // projects/app: a normal repository with a commit and a submodule.
+        let library = TemporaryRepository(url: root.appending(path: "libraries/lib"), runner: git)
+        try FileManager.default.createDirectory(at: library.url, withIntermediateDirectories: true)
+        try await run(["init", "-q", "-b", "main"], in: library.url)
+        try await library.commit("Library")
+
+        let app = TemporaryRepository(url: root.appending(path: "projects/app"), runner: git)
+        try FileManager.default.createDirectory(at: app.url, withIntermediateDirectories: true)
+        try await run(["init", "-q", "-b", "main"], in: app.url)
+        try await app.commit("App")
+        try await run(
+            ["-c", "protocol.file.allow=always", "submodule", "add", "-q", library.url.path, "Vendor/lib"],
+            in: app.url
+        )
+        try await run(["commit", "-q", "-m", "Add submodule"], in: app.url)
+
+        // projects/app-feature: a linked worktree (its .git is a file).
+        try await run(
+            ["worktree", "add", "-q", "-b", "feature", root.appending(path: "projects/app-feature").path],
+            in: app.url
+        )
+
+        // archive/backup.git: a bare repository, which has no working tree to show.
+        let bare = root.appending(path: "archive/backup.git")
+        try FileManager.default.createDirectory(at: bare, withIntermediateDirectories: true)
+        try await run(["init", "-q", "--bare"], in: bare)
+
+        let found = try await RepositoryScanner().scan(root, maxDepth: 4)
+        let relative = found.map {
+            String($0.standardizedFileURL.path.dropFirst(root.standardizedFileURL.path.count + 1))
+        }
+        #expect(relative == ["libraries/lib", "projects/app", "projects/app-feature"])
+
+        // Every scanned repository's status can be read.
+        var branches: [String] = []
+        for url in found {
+            let status = try await service.status(of: url)
+            branches.append(status.head.branchName ?? "")
+        }
+        #expect(branches == ["main", "main", "feature"])
+    }
+
     @Test("Directory that is not a repository throws notARepository")
     func notARepository() async throws {
         let directory = try TemporaryRepository.makeDirectory()
