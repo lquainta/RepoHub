@@ -7,6 +7,8 @@
 
 A native macOS dashboard for all your local git repositories: status, stale branches, pull requests, and CI at a glance.
 
+**Production API:** <https://repohub-backend.fly.dev> · [`/health`](https://repohub-backend.fly.dev/health)
+
 > 🚧 Under active development. Build and run instructions are coming in [#13](https://github.com/lquainta/RepoHub/issues/13).
 
 ## Repository layout
