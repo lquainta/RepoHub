@@ -1,0 +1,11 @@
+# Only Backend/ and Packages/RepoHubCore/ are needed to build the backend image.
+# Tests/ are included because SwiftPM requires every declared target's sources;
+# they're compiled into neither stage's output.
+*
+!Backend/Package.swift
+!Backend/Package.resolved
+!Backend/Sources/
+!Backend/Tests/
+!Packages/RepoHubCore/Package.swift
+!Packages/RepoHubCore/Sources/
+!Packages/RepoHubCore/Tests/

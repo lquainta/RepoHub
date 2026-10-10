@@ -102,6 +102,13 @@ migrate-revert: ## Revert the last batch of migrations on $$DATABASE_URL
 check-migrations: ## Migrate, revert, and migrate again on a clean $$DATABASE_URL
 	scripts/check-migrations.sh
 
+.PHONY: docker-build docker-run
+docker-build: ## Build the backend image (repohub-backend:dev)
+	docker build -f $(BACKEND_DIR)/Dockerfile --build-arg BUILD_COMMIT=$$(git rev-parse --short HEAD) -t repohub-backend:dev .
+
+docker-run: ## Run the backend image on http://localhost:8080 with .env
+	docker run --rm -p 8080:8080 --env-file .env repohub-backend:dev
+
 .PHONY: run-backend open
 run-backend: ## Run the backend on http://localhost:8080
 	swift run --package-path $(BACKEND_DIR) App serve --hostname 0.0.0.0 --port 8080
