@@ -306,3 +306,25 @@ struct LibraryViewModelScopeTests {
         #expect(model.rows.allSatisfy { $0.facts == RepositoryFacts(remoteCount: 1, staleBranchCount: 0) })
     }
 }
+
+@MainActor
+@Suite("LibraryViewModel start")
+struct LibraryViewModelStartTests {
+    @Test("Start runs once even when the window and the menu bar both call it")
+    func startOnce() async throws {
+        let store = LibraryStore(container: try Persistence.makeInMemoryContainer())
+        let git = FakeGit()
+        let model = LibraryViewModel(
+            store: store,
+            scanner: FakeScanner(results: ["/dev": .success([URL(fileURLWithPath: "/dev/api")])]),
+            statuses: StatusMonitor(git: git, staleBranchDays: { nil }),
+            detail: RepositoryDetailModel(git: git),
+            actions: RepositoryActions(git: git, workspace: FakeWorkspace())
+        )
+        await model.start(addingFolders: [URL(fileURLWithPath: "/dev")])
+        await model.start(addingFolders: [URL(fileURLWithPath: "/dev")])
+
+        #expect(model.repositories.map(\.name) == ["api"])
+        #expect(await git.reads == ["/dev/api", "/dev/api"])
+    }
+}

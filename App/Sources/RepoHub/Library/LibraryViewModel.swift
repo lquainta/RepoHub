@@ -29,6 +29,8 @@ final class LibraryViewModel {
     private(set) var groups: [RepoGroup] = []
     /// What the sidebar is showing.
     var scope: SidebarScope = .all
+    /// Whether ``start(addingFolders:)`` has run.
+    private var hasStarted = false
     /// Search text and quick filters applied to the dashboard.
     var filter = RepositoryFilter()
 
@@ -64,6 +66,21 @@ final class LibraryViewModel {
         autoRefresh?.onBackgroundFetch = { [weak self] in
             await self?.fetchAll()
         }
+    }
+
+    /// Loads the library, starts auto-refresh, and reads every status. Runs
+    /// once, from whichever scene appears first (the window or the menu bar).
+    func start(addingFolders launchFolders: [URL] = []) async {
+        guard !hasStarted else {
+            return
+        }
+        hasStarted = true
+        load()
+        autoRefresh?.start()
+        if !launchFolders.isEmpty {
+            await addFolders(launchFolders)
+        }
+        await refreshStatuses()
     }
 
     /// Fetches every tracked repository.

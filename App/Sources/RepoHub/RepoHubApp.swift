@@ -5,9 +5,14 @@ import SwiftUI
 /// Application entry point.
 @main
 struct RepoHubApp: App {
+    /// Identifies the dashboard window so the menu bar can reopen it.
+    static let mainWindowID = "main"
+
     private let container: ModelContainer
     @State private var library: LibraryViewModel
     @State private var settings = SettingsModel()
+    @AppStorage(AppPreferences.showMenuBarExtraKey) private var showMenuBarExtra = true
+    @AppStorage(AppPreferences.menuBarOnlyKey) private var menuBarOnly = false
     private let launchFolders: [URL]
 
     init() {
@@ -24,18 +29,12 @@ struct RepoHubApp: App {
     }
 
     var body: some Scene {
-        WindowGroup {
+        WindowGroup(id: Self.mainWindowID) {
             LibraryView(model: library)
-                .task {
-                    library.load()
-                    library.autoRefresh?.start()
-                    if !launchFolders.isEmpty {
-                        await library.addFolders(launchFolders)
-                    }
-                    await library.refreshStatuses()
-                }
+                .task { await library.start(addingFolders: launchFolders) }
         }
         .modelContainer(container)
+        .defaultLaunchBehavior(menuBarOnly && showMenuBarExtra ? .suppressed : .presented)
         .commands {
             RepositoryCommands(model: library)
         }
@@ -43,6 +42,19 @@ struct RepoHubApp: App {
         Settings {
             SettingsView(settings: settings, library: library)
         }
+
+        MenuBarExtra(isInserted: $showMenuBarExtra) {
+            MenuBarContent(library: library)
+                .task { await library.start(addingFolders: launchFolders) }
+        } label: {
+            MenuBarLabel(library: library)
+                .task { await library.start(addingFolders: launchFolders) }
+                .onChange(of: menuBarOnly && showMenuBarExtra, initial: true) { _, accessory in
+                    // Menu-bar-only hides the Dock icon; it needs the menu bar icon to stay reachable.
+                    NSApplication.shared.setActivationPolicy(accessory ? .accessory : .regular)
+                }
+        }
+        .menuBarExtraStyle(.window)
     }
 
     /// Opens the on-disk store, or an in-memory store for UI tests (see
