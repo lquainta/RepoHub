@@ -17,6 +17,7 @@ services:
       LOG_LEVEL: debug
       BUILD_COMMIT: devcontainer
       DATABASE_URL: postgres://repohub:repohub@postgres:5432/repohub_dev
+      TEST_DATABASE_URL: postgres://repohub:repohub@postgres:5432/repohub_test
       REDIS_URL: redis://redis:6379
     depends_on:
       postgres:

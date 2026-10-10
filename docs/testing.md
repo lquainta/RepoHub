@@ -20,6 +20,14 @@ RepoHub has three kinds of tests. Every PR must keep all of them green in CI.
   func fetchUpdatesAheadBehind() async throws { ... }
   ```
 
+- **Backend integration tests** need PostgreSQL. They read `TEST_DATABASE_URL` and are **skipped when it isn't set**, so `make test` works without a database. Each test migrates an empty schema and reverts it afterwards, so the test database must be disposable. Never point it at a development or production database. CI and the DevContainer provide one:
+
+  ```sh
+  docker run -d --name repohub-test-db -p 5433:5432 -e POSTGRES_USER=repohub \
+    -e POSTGRES_PASSWORD=repohub -e POSTGRES_DB=repohub_test postgres:18.6-alpine
+  TEST_DATABASE_URL=postgres://repohub:repohub@localhost:5433/repohub_test make test-backend
+  ```
+
 - **UI tests** cover the main user flows end to end. Keep them few and focused. Use launch arguments to point the app at fixture repositories and a stubbed backend, never at the developer's real folders.
 
 Don't write tests for trivial getters, setters, or memberwise initializers.

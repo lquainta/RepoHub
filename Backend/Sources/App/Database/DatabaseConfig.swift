@@ -43,7 +43,7 @@ struct DatabaseConfig: Sendable {
 }
 
 extension Application {
-    /// Registers PostgreSQL as the default database.
+    /// Registers PostgreSQL as the default database and adds every migration.
     func configureDatabase(_ config: DatabaseConfig) {
         databases.use(
             .postgres(
@@ -52,5 +52,6 @@ extension Application {
             ),
             as: .psql
         )
+        migrations.add(Migrations.all)
     }
 }
