@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Blocks commits with formatting errors, lint errors, or secrets in the staged
+# changes. Installed by `make bootstrap` (git config core.hooksPath .githooks).
+# Bypass only in an emergency with `git commit --no-verify`; CI runs the same checks.
+set -euo pipefail
+
+cd "$(git rev-parse --show-toplevel)"
+failed=0
+
+# Staged Swift files that still exist (added, copied, modified, renamed).
+swift_files=()
+while IFS= read -r -d '' file; do
+    swift_files+=("$file")
+done < <(git diff --cached --name-only --diff-filter=ACMR -z -- '*.swift')
+
+if [ "${#swift_files[@]}" -gt 0 ]; then
+    if ! swift format lint --strict "${swift_files[@]}"; then
+        echo "✗ swift-format: run \`make format\` and stage the changes." >&2
+        failed=1
+    fi
+    if command -v swiftlint >/dev/null; then
+        if ! swiftlint lint --strict --quiet "${swift_files[@]}"; then
+            echo "✗ SwiftLint found problems (see above)." >&2
+            failed=1
+        fi
+    else
+        echo "! SwiftLint not installed (brew install swiftlint); skipping lint." >&2
+    fi
+fi
+
+if command -v gitleaks >/dev/null; then
+    if ! gitleaks git --pre-commit --staged --config .gitleaks.toml --redact --no-banner --log-level error; then
+        echo "✗ Gitleaks found a secret in the staged changes. Remove it; never commit secrets." >&2
+        failed=1
+    fi
+else
+    echo "! Gitleaks not installed (brew install gitleaks); skipping the secret scan." >&2
+fi
+
+exit "$failed"

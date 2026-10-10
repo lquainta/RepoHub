@@ -22,9 +22,15 @@ bootstrap: ## Check required tools, resolve dependencies, and generate the Xcode
 	@command -v gitleaks >/dev/null || { echo "gitleaks not found: brew install gitleaks"; exit 1; }
 	@command -v swiftlint >/dev/null || { echo "swiftlint not found: brew install swiftlint"; exit 1; }
 	@command -v xcodebuild >/dev/null || { echo "Xcode not found: install it from the App Store"; exit 1; }
+	$(MAKE) hooks
 	swift package resolve --package-path $(CORE_DIR)
 	swift package resolve --package-path $(BACKEND_DIR)
 	$(MAKE) generate
+
+.PHONY: hooks
+hooks: ## Install the git hooks (format, lint, secret scan, Conventional Commits)
+	git config core.hooksPath .githooks
+	@echo "Git hooks installed from .githooks/"
 
 .PHONY: generate
 generate: ## Generate App/RepoHub.xcodeproj from App/project.yml

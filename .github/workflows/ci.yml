@@ -243,5 +243,6 @@ jobs:
           runCmd: |
             set -e
             make test-core test-backend lint format-check check-env
+            scripts/test-git-hooks.sh
             pg_isready -d "$DATABASE_URL"
             redis-cli -u "$REDIS_URL" ping
