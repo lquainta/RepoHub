@@ -1,0 +1,36 @@
+# Codecov configuration: https://docs.codecov.com/docs/codecov-yaml
+coverage:
+  precision: 1
+  round: down
+  range: "60...90"
+  status:
+    project:
+      default:
+        # Fail the codecov/project status if total coverage drops by more than 2%.
+        target: auto
+        threshold: 2%
+    patch:
+      default:
+        target: 70%
+        informational: true
+
+flags:
+  core:
+    paths:
+      - Packages/RepoHubCore/Sources/
+    carryforward: true
+  backend:
+    paths:
+      - Backend/Sources/
+    carryforward: true
+  app:
+    paths:
+      - App/Sources/
+    carryforward: true
+
+ignore:
+  - "**/Tests/**"
+
+comment:
+  layout: "condensed_header, diff, flags, files"
+  require_changes: false
