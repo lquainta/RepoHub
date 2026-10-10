@@ -1,5 +1,31 @@
 # Deployment
 
+## Local stack
+
+[`docker-compose.yml`](../docker-compose.yml) runs the whole backend locally with one command:
+
+```sh
+make up        # docker compose up --build -d --wait
+curl localhost:8080/health
+make down      # keeps data; `docker compose down -v` also deletes the volumes
+```
+
+| Service | What it does | Port (localhost only) |
+| --- | --- | --- |
+| `postgres` | PostgreSQL 18, database `repohub_dev`, volume `postgres-data` | `5432` (`POSTGRES_PORT`) |
+| `redis` | Redis 8 with append-only persistence, volume `redis-data` | `6379` (`REDIS_PORT`) |
+| `migrate` | One-shot: runs `migrate --yes` with the backend image, then exits | none |
+| `api` | The backend image (`Backend/Dockerfile`) | `8080` (`API_PORT`) |
+
+- **Startup order:** health checks gate it. `migrate` waits for a healthy `postgres`; `api` waits until `migrate` **completed successfully** and `redis` is healthy. A failed migration therefore keeps the old API from starting against a half-migrated schema.
+- **Configuration:** the backend reads `.env` if it exists (optional). Compose overrides `DATABASE_URL` and `REDIS_URL` to point at the service names.
+- **Port conflicts:** change `POSTGRES_PORT`, `REDIS_PORT`, or `API_PORT` if another local Postgres or Redis is running. Ports bind to `127.0.0.1` only.
+- **Credentials:** throwaway local defaults (`repohub` / `repohub`). Override with `POSTGRES_PASSWORD`.
+
+CI's `Docker image` job starts this stack from the freshly built image and checks that `/health` responds, `migrate` exited 0, and every table exists.
+
+The DevContainer (`.devcontainer/`) has its own compose file for an editor-attached development container. This one runs the built image, like production.
+
 ## Container image
 
 The backend ships as a Docker image built from [`Backend/Dockerfile`](../Backend/Dockerfile). The build context is the repository root, because the backend depends on `Packages/RepoHubCore` by path.

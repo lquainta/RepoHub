@@ -223,9 +223,25 @@ jobs:
           done
           test "$(docker inspect api --format '{{.State.Health.Status}}')" = healthy
           docker images repohub-backend:ci --format '**Backend image:** {{.Size}} uncompressed' >> "$GITHUB_STEP_SUMMARY"
+          docker rm -f api
+      - name: Start the docker-compose stack with this image
+        run: |
+          docker tag repohub-backend:ci repohub-backend:compose
+          docker compose up -d --no-build --wait --wait-timeout 120
+          docker compose ps
+      - name: Check the stack serves the API with a migrated database
+        run: |
+          curl -fsS localhost:8080/health | grep -q '"status":"ok"'
+          test "$(docker compose ps -a migrate --format '{{.ExitCode}}')" = 0
+          tables=$(docker compose exec -T postgres psql -U repohub -d repohub_dev -tAc \
+            "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name <> '_fluent_migrations'")
+          echo "Tables: $tables"
+          test "$tables" -ge 8
       - name: Show container logs
         if: failure()
-        run: docker logs api || true
+        run: |
+          docker logs api || true
+          docker compose logs || true
 
   devcontainer:
     name: DevContainer
