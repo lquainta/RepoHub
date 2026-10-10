@@ -67,6 +67,14 @@ struct LibraryView: View {
         } message: {
             Text(model.errorMessage ?? "")
         }
+        .sheet(item: Bindable(model.actions).branchCleanup) { cleanup in
+            StaleBranchSheet(
+                model: cleanup,
+                repositoryName: URL(fileURLWithPath: cleanup.path).lastPathComponent
+            ) {
+                Task { await model.actions.branchCleanupFinished(cleanup.path) }
+            }
+        }
         .alert(
             "Some actions failed",
             isPresented: Binding(

@@ -99,6 +99,15 @@ enum StatusText {
         return "\(upstream) · \(sync)"
     }
 
+    /// For example "Merged", "Deleted on remote", or "No commits for 120 days".
+    static func description(of reason: StaleReason) -> String {
+        switch reason {
+        case .merged: String(localized: "Merged")
+        case .upstreamGone: String(localized: "Deleted on remote")
+        case .inactive(let days): String(localized: "No commits for \(days) days")
+        }
+    }
+
     /// A short explanation of why a repository's status couldn't be read.
     static func message(for error: GitError) -> String {
         switch error {

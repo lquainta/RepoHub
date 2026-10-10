@@ -17,6 +17,11 @@ struct RepositoryMenu: View {
         }
         .keyboardShortcut("p", modifiers: [.command, .option])
 
+        Button("Clean Up Branches…", systemImage: "scissors") {
+            if let first { actions.cleanUpBranches(first) }
+        }
+        .keyboardShortcut("b", modifiers: [.command, .option])
+
         Divider()
 
         Button("Open in Editor", systemImage: "chevron.left.forwardslash.chevron.right") {

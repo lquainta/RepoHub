@@ -35,6 +35,8 @@ final class RepositoryActions {
     private(set) var fetchAllProgress: Progress?
     /// Failures from the most recent actions, cleared when the user dismisses them.
     var failures: [Failure] = []
+    /// The open "Clean Up Branches" review, if any.
+    var branchCleanup: StaleBranchModel?
 
     private let git: any GitServicing
     private let workspace: any WorkspaceOpening
@@ -88,6 +90,20 @@ final class RepositoryActions {
     /// Opens the repository in the preferred terminal.
     func openInTerminal(_ path: String) async {
         await open(path, bundleID: AppPreferences.terminalBundleID(defaults))
+    }
+
+    /// Opens the stale branch review for the repository.
+    func cleanUpBranches(_ path: String) {
+        branchCleanup = StaleBranchModel(
+            path: path,
+            git: git,
+            inactiveAfterDays: AppPreferences.staleBranchDays(defaults)
+        )
+    }
+
+    /// Refreshes the repository after branch cleanup finished.
+    func branchCleanupFinished(_ path: String) async {
+        await onRepositoriesChanged([path])
     }
 
     /// Shows the repository's folder in Finder.

@@ -7,6 +7,11 @@ enum AppPreferences {
     /// Bundle identifier of the terminal that "Open in Terminal" uses.
     static let terminalBundleIDKey = "terminalBundleID"
 
+    /// Days without commits after which a branch counts as stale; `0` turns the check off.
+    static let staleBranchDaysKey = "staleBranchDays"
+    /// Branches untouched for 90 days are suggested for cleanup.
+    static let defaultStaleBranchDays = 90
+
     /// Visual Studio Code.
     static let defaultEditorBundleID = "com.microsoft.VSCode"
     /// Terminal.app.
@@ -18,5 +23,11 @@ enum AppPreferences {
 
     static func terminalBundleID(_ defaults: UserDefaults = .standard) -> String {
         defaults.string(forKey: terminalBundleIDKey) ?? defaultTerminalBundleID
+    }
+
+    /// The inactivity threshold, or `nil` when the check is off.
+    static func staleBranchDays(_ defaults: UserDefaults = .standard) -> Int? {
+        let days = defaults.object(forKey: staleBranchDaysKey) as? Int ?? defaultStaleBranchDays
+        return days > 0 ? days : nil
     }
 }
