@@ -19,6 +19,8 @@ final class LibraryViewModel {
     let statuses: StatusMonitor
     /// Details of the selected repository.
     let detail: RepositoryDetailModel
+    /// Fetch, pull, and open actions.
+    let actions: RepositoryActions
     /// Path of the selected repository, if any.
     private(set) var selectedPath: String?
 
@@ -30,12 +32,30 @@ final class LibraryViewModel {
         store: LibraryStore,
         scanner: any RepositoryScanning = RepositoryScanner(),
         statuses: StatusMonitor? = nil,
-        detail: RepositoryDetailModel? = nil
+        detail: RepositoryDetailModel? = nil,
+        actions: RepositoryActions? = nil
     ) {
         self.store = store
         self.scanner = scanner
         self.statuses = statuses ?? StatusMonitor()
         self.detail = detail ?? RepositoryDetailModel()
+        self.actions = actions ?? RepositoryActions()
+        self.actions.onRepositoriesChanged = { [weak self] paths in
+            await self?.repositoriesChanged(paths)
+        }
+    }
+
+    /// Fetches every tracked repository.
+    func fetchAll() async {
+        await actions.fetchAll(repositories.map(\.path))
+    }
+
+    /// Re-reads statuses (and the open details) after an action changed `paths`.
+    private func repositoriesChanged(_ paths: [String]) async {
+        await statuses.refresh(paths)
+        if let selectedPath, paths.contains(selectedPath) {
+            await detail.reload()
+        }
     }
 
     /// The selected repository, if it's still tracked.

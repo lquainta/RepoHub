@@ -83,11 +83,32 @@ struct GitServiceTests {
         #expect(!runner.invokedSubcommands.contains("log"))
     }
 
+    @Test("Fetch prunes all remotes and pull only fast-forwards")
+    func fetchAndPullArguments() async throws {
+        let runner = RecordingRunner()
+        let service = GitService(runner: runner)
+        try await service.fetch(repo)
+        try await service.pull(repo)
+        #expect(runner.calls == [["fetch", "--all", "--prune", "--quiet"], ["pull", "--ff-only", "--quiet"]])
+    }
+
     @Test("Propagates runner errors")
     func propagatesErrors() async {
         let runner = FakeGitRunner(["status": .failure(.notARepository(path: "/tmp/repo"))])
         await #expect(throws: GitError.notARepository(path: "/tmp/repo")) {
             try await GitService(runner: runner).status(of: repo)
         }
+    }
+}
+
+/// Records the full arguments of every command.
+private final class RecordingRunner: GitCommandRunning, @unchecked Sendable {
+    private let lock = NSLock()
+    private var recorded: [[String]] = []
+    var calls: [[String]] { lock.withLock { recorded } }
+
+    func run(_ arguments: [String], in directory: URL) async throws -> String {
+        lock.withLock { recorded.append(arguments) }
+        return ""
     }
 }

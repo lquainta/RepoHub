@@ -8,6 +8,12 @@ public protocol GitServicing: Sendable {
     func status(of repository: URL) async throws -> RepoStatus
     /// Returns the status plus changed files, branches, recent commits, remotes, and stashes.
     func details(of repository: URL, commitLimit: Int) async throws -> RepositoryDetails
+    /// Downloads objects and refs from every remote and prunes deleted remote branches.
+    func fetch(_ repository: URL) async throws
+    /// Fast-forwards the current branch to its upstream. Never creates a merge commit.
+    func pull(_ repository: URL) async throws
+    /// Returns the configured remotes, sorted by name.
+    func remotes(of repository: URL) async throws -> [Remote]
 }
 
 extension GitServicing {
@@ -57,7 +63,7 @@ public struct GitService: GitServicing {
                 + BranchListParser.refPatterns,
             in: repository
         )
-        async let remoteOutput = runner.run(["remote", "-v"], in: repository)
+        async let remotes = remotes(of: repository)
         async let stashOutput = runner.run(
             ["--no-optional-locks", "stash", "list", "--format=\(StashListParser.format)"],
             in: repository
@@ -68,7 +74,7 @@ public struct GitService: GitServicing {
             status: status,
             files: files,
             branches: try BranchListParser.parse(try await branchOutput),
-            remotes: try RemoteListParser.parse(try await remoteOutput),
+            remotes: try await remotes,
             stashes: try StashListParser.parse(try await stashOutput)
         )
         // A repository with no commits has nothing to log.
@@ -82,6 +88,27 @@ public struct GitService: GitServicing {
         details.recentCommits = try CommitSummaryParser.parseList(log)
         details.status.lastCommit = details.recentCommits.first
         return details
+    }
+
+    /// Runs `git fetch --all --prune`.
+    ///
+    /// - Throws: ``GitError`` if a remote can't be reached or authentication fails.
+    public func fetch(_ repository: URL) async throws {
+        _ = try await runner.run(["fetch", "--all", "--prune", "--quiet"], in: repository)
+    }
+
+    /// Runs `git pull --ff-only`, so local commits are never merged or rebased.
+    ///
+    /// - Throws: ``GitError/commandFailed(command:exitCode:stderr:)`` if the
+    ///   branch has diverged from its upstream, has no upstream, or local
+    ///   changes would be overwritten.
+    public func pull(_ repository: URL) async throws {
+        _ = try await runner.run(["pull", "--ff-only", "--quiet"], in: repository)
+    }
+
+    /// Runs `git remote -v`.
+    public func remotes(of repository: URL) async throws -> [Remote] {
+        try RemoteListParser.parse(try await runner.run(["remote", "-v"], in: repository))
     }
 
     private func runStatus(in repository: URL) async throws -> String {

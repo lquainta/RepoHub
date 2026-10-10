@@ -29,6 +29,9 @@ struct RepoHubApp: App {
                 }
         }
         .modelContainer(container)
+        .commands {
+            RepositoryCommands(model: library)
+        }
     }
 
     /// Opens the on-disk store, or an in-memory store for UI tests (see
