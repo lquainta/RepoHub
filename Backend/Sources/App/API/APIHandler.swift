@@ -16,7 +16,7 @@ struct APIHandler: APIProtocol {
     let app: Application
 
     private var auth: AuthService { app.authService(on: app.db) }
-    private var logger: Logger { app.logger }
+    private var logger: Logger { app.contextLogger }
 
     // MARK: - Health
 
