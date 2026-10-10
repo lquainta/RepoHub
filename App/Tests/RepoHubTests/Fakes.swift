@@ -81,6 +81,49 @@ actor FakeGit: GitServicing {
         }
     }
 
+    /// The stale branch report returned for every repository.
+    var staleReport = StaleBranchReport(defaultBranch: "main", currentBranch: "main", candidates: [])
+    /// Branch names whose deletion fails.
+    private var undeletable: Set<String> = []
+    /// A recorded `deleteBranches` call.
+    struct Deletion {
+        var names: [String]
+        var force: Bool
+        var deleteRemote: Bool
+    }
+
+    /// Every deletion request.
+    private(set) var deletions: [Deletion] = []
+
+    func setStaleReport(_ report: StaleBranchReport) {
+        staleReport = report
+    }
+
+    func setUndeletable(_ names: Set<String>) {
+        undeletable = names
+    }
+
+    func staleBranches(of repository: URL, inactiveAfterDays: Int?) async throws -> StaleBranchReport {
+        staleReport
+    }
+
+    func deleteBranches(
+        _ branches: [Branch],
+        in repository: URL,
+        force: Bool,
+        deleteRemote: Bool
+    ) async throws -> [BranchDeletionResult] {
+        deletions.append(Deletion(names: branches.map(\.name), force: force, deleteRemote: deleteRemote))
+        return branches.map { branch in
+            undeletable.contains(branch.name)
+                ? BranchDeletionResult(
+                    name: branch.name,
+                    error: .commandFailed(command: "git branch", exitCode: 1, stderr: "error: not fully merged")
+                )
+                : BranchDeletionResult(name: branch.name, deletedRemote: deleteRemote)
+        }
+    }
+
     func status(of repository: URL) async throws -> RepoStatus {
         reads.append(repository.path)
         running += 1
