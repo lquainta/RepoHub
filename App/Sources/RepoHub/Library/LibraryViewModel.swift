@@ -33,19 +33,20 @@ final class LibraryViewModel {
     var filter = RepositoryFilter()
 
     let store: LibraryStore
-    private let scanner: any RepositoryScanning
+    /// The injected scanner, or `nil` to use one built from the current preferences.
+    private let injectedScanner: (any RepositoryScanning)?
     private let logger = Logger(subsystem: "com.lquainta.RepoHub", category: "Library")
 
     init(
         store: LibraryStore,
-        scanner: any RepositoryScanning = RepositoryScanner(),
+        scanner: (any RepositoryScanning)? = nil,
         statuses: StatusMonitor? = nil,
         detail: RepositoryDetailModel? = nil,
         actions: RepositoryActions? = nil,
         autoRefresh: AutoRefreshController? = nil
     ) {
         self.store = store
-        self.scanner = scanner
+        self.injectedScanner = scanner
         self.statuses = statuses ?? StatusMonitor()
         self.detail = detail ?? RepositoryDetailModel()
         self.actions = actions ?? RepositoryActions()
@@ -180,6 +181,8 @@ final class LibraryViewModel {
         }
         isScanning = true
         defer { isScanning = false }
+        // Read the ignore list at every scan so Settings changes apply on the next refresh.
+        let scanner = injectedScanner ?? RepositoryScanner(ignoredNames: AppPreferences.ignoredFolderNames())
 
         for folder in folders {
             let root = URL(fileURLWithPath: folder.path, isDirectory: true)

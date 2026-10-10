@@ -1,6 +1,7 @@
 import Foundation
+import RepoHubCore
 
-/// Keys and defaults for preferences stored in `UserDefaults` (edited in Settings, #74).
+/// Keys and defaults for preferences stored in `UserDefaults`, edited in the Settings window.
 enum AppPreferences {
     /// Bundle identifier of the editor that "Open in Editor" uses.
     static let editorBundleIDKey = "editorBundleID"
@@ -14,6 +15,11 @@ enum AppPreferences {
 
     /// Minutes between background fetches of every repository; `0` turns it off (the default).
     static let backgroundFetchMinutesKey = "backgroundFetchMinutes"
+
+    /// Folder names the scanner skips, in addition to hidden folders.
+    static let ignoredFolderNamesKey = "ignoredFolderNames"
+    /// Whether the menu bar summary is shown.
+    static let showMenuBarExtraKey = "showMenuBarExtra"
 
     /// Visual Studio Code.
     static let defaultEditorBundleID = "com.microsoft.VSCode"
@@ -37,5 +43,15 @@ enum AppPreferences {
     static func staleBranchDays(_ defaults: UserDefaults = .standard) -> Int? {
         let days = defaults.object(forKey: staleBranchDaysKey) as? Int ?? defaultStaleBranchDays
         return days > 0 ? days : nil
+    }
+
+    /// Folder names to skip while scanning; defaults to ``RepositoryScanner/defaultIgnoredNames``.
+    static func ignoredFolderNames(_ defaults: UserDefaults = .standard) -> Set<String> {
+        defaults.stringArray(forKey: ignoredFolderNamesKey).map(Set.init) ?? RepositoryScanner.defaultIgnoredNames
+    }
+
+    /// Whether the menu bar summary is shown (on by default).
+    static func showMenuBarExtra(_ defaults: UserDefaults = .standard) -> Bool {
+        defaults.object(forKey: showMenuBarExtraKey) as? Bool ?? true
     }
 }
