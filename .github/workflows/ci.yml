@@ -43,6 +43,8 @@ jobs:
             "| Scan 500 repos (concurrent) | \(.scan_500_repos.concurrent_ms | floor) ms (\(.scan_500_repos.speedup * 10 | floor / 10)x faster than sequential) | \(.scan_500_repos.budget_ms | floor) ms |",
             "| Parse 50,000 status entries | \(.parse_50k_status.median_ms | floor) ms | \(.parse_50k_status.budget_ms | floor) ms |"' \
             "$REPOHUB_BENCHMARK_OUTPUT" >> "$GITHUB_STEP_SUMMARY"
+      - name: Test the generated API client
+        run: make test-client
       - name: Coverage summary
         run: |
           percent=$(awk -F: '/^LF:/ {f += $2} /^LH:/ {h += $2} END {printf "%.1f%%", h * 100 / f}' coverage/core.lcov)
@@ -235,8 +237,11 @@ jobs:
             -e "REDIS_URL=redis://localhost:6379" \
             repohub-backend:ci
           for _ in $(seq 1 30); do curl -fsS localhost:8080/health && break; sleep 1; done
-          curl -fsS localhost:8080/health | grep -q '"status":"ok"'
-          curl -fsS localhost:8080/health | grep -q "\"commit\":\"${GITHUB_SHA}\""
+          # Whitespace-tolerant: the generated server pretty-prints JSON.
+          curl -fsS localhost:8080/health | grep -Eq '"status" *: *"ok"'
+          curl -fsS localhost:8080/health | grep -Eq "\"commit\" *: *\"${GITHUB_SHA}\""
+          curl -fsS localhost:8080/openapi.yaml | grep -q '^openapi: 3.1'
+          curl -fsS -o /dev/null localhost:8080/docs
           test "$(docker exec api id -u)" != "0"
           for _ in $(seq 1 20); do
             [ "$(docker inspect api --format '{{.State.Health.Status}}')" = healthy ] && break; sleep 3
@@ -251,7 +256,7 @@ jobs:
           docker compose ps
       - name: Check the stack serves the API with a migrated database
         run: |
-          curl -fsS localhost:8080/health | grep -q '"status":"ok"'
+          curl -fsS localhost:8080/health | grep -Eq '"status" *: *"ok"'
           test "$(docker compose ps -a migrate --format '{{.ExitCode}}')" = 0
           tables=$(docker compose exec -T postgres psql -U repohub -d repohub_dev -tAc \
             "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name <> '_fluent_migrations'")

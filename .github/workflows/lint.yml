@@ -36,6 +36,14 @@ jobs:
       - name: Check formatting
         run: make format-check
 
+  openapi:
+    name: OpenAPI
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Lint openapi/openapi.yaml (Redocly, every finding is an error)
+        run: make lint-openapi
+
   env-sample:
     name: Env sample
     runs-on: ubuntu-latest
