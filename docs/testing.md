@@ -36,6 +36,19 @@ RepoHub has three kinds of tests. Every PR must keep all of them green in CI.
   - details: branches, commits, remotes, stashes
   - stale-branch detection and safe or forced branch deletion, including on the remote
   - process timeouts and cancellation
+- **Performance tests** (`PerformanceTests`, tagged `.performance`) benchmark scanning 500 generated repositories and parsing a 50,000-entry `git status`. They're opt-in, because timings only mean something in a release build:
+
+  ```sh
+  make bench   # REPOHUB_BENCHMARK=1 swift test -c release --filter PerformanceTests
+  ```
+
+  CI runs them on every PR and writes the results to the job summary. A test **fails if its time budget is exceeded**, so large regressions block merging.
+
+  | Benchmark | Measured (M-series Mac, release) | Budget |
+  | --- | --- | --- |
+  | Scan 500 repositories, concurrent | 22 ms | **250 ms** |
+  | Scan 500 repositories, sequential baseline | 43 ms (concurrency is 1.9× faster) | — |
+  | Parse a 50,000-entry status | 94 ms | **500 ms** |
 
 - **UI tests** cover the main user flows end to end. Keep them few and focused. Use launch arguments to point the app at fixture repositories and a stubbed backend, never at the developer's real folders.
 

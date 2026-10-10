@@ -34,10 +34,14 @@ public struct RepositoryScanner: RepositoryScanning {
 
     /// Directory names to skip, in addition to hidden directories.
     public let ignoredNames: Set<String>
+    /// Whether sibling directories are scanned in parallel. Sequential
+    /// scanning exists as a baseline for the performance tests.
+    public let concurrent: Bool
 
     /// Creates a scanner that skips `ignoredNames`.
-    public init(ignoredNames: Set<String> = RepositoryScanner.defaultIgnoredNames) {
+    public init(ignoredNames: Set<String> = RepositoryScanner.defaultIgnoredNames, concurrent: Bool = true) {
         self.ignoredNames = ignoredNames
+        self.concurrent = concurrent
     }
 
     /// Returns the working-tree URL of every repository under `root`, sorted by path.
@@ -61,6 +65,13 @@ public struct RepositoryScanner: RepositoryScanning {
             return []
         }
         let children = subdirectories(of: directory)
+        guard concurrent else {
+            var found: [URL] = []
+            for child in children {
+                found += try await scan(directory: child, depth: depth + 1, maxDepth: maxDepth)
+            }
+            return found
+        }
         return try await withThrowingTaskGroup(of: [URL].self) { group in
             for child in children {
                 group.addTask {

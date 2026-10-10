@@ -33,6 +33,16 @@ jobs:
         run: xcodebuild -version && swift --version
       - name: Test with coverage
         run: scripts/package-coverage.sh Packages/RepoHubCore coverage/core.lcov
+      - name: Benchmarks (release build; fails if a time budget is exceeded)
+        env:
+          REPOHUB_BENCHMARK_OUTPUT: ${{ runner.temp }}/benchmarks.json
+        run: |
+          make bench
+          jq -r '"**Benchmarks**", "",
+            "| Benchmark | Result | Budget |", "| --- | --- | --- |",
+            "| Scan 500 repos (concurrent) | \(.scan_500_repos.concurrent_ms | floor) ms (\(.scan_500_repos.speedup * 10 | floor / 10)x faster than sequential) | \(.scan_500_repos.budget_ms | floor) ms |",
+            "| Parse 50,000 status entries | \(.parse_50k_status.median_ms | floor) ms | \(.parse_50k_status.budget_ms | floor) ms |"' \
+            "$REPOHUB_BENCHMARK_OUTPUT" >> "$GITHUB_STEP_SUMMARY"
       - name: Coverage summary
         run: |
           percent=$(awk -F: '/^LF:/ {f += $2} /^LH:/ {h += $2} END {printf "%.1f%%", h * 100 / f}' coverage/core.lcov)
