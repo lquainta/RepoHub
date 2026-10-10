@@ -24,7 +24,14 @@ This project follows a strict issue → branch → pull request workflow so ever
    | `refactor` | Code changes that neither fix a bug nor add a feature |
    | `perf` | Performance improvements |
 
-3. **Commit** using [Conventional Commits](https://www.conventionalcommits.org/):
+3. **Commit** using [Conventional Commits](https://www.conventionalcommits.org/). `make bootstrap` (or `make hooks`) installs git hooks from `.githooks/` that block commits locally when:
+   - staged Swift files fail swift-format or SwiftLint
+   - Gitleaks finds a secret in the staged changes
+   - the message isn't a Conventional Commit
+
+   CI runs the same checks, so `--no-verify` only delays the failure. `scripts/test-git-hooks.sh` proves the hooks block each case.
+
+   Example:
 
    ```text
    feat(core): parse porcelain v2 branch headers
