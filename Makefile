@@ -109,6 +109,14 @@ docker-build: ## Build the backend image (repohub-backend:dev)
 docker-run: ## Run the backend image on http://localhost:8080 with .env
 	docker run --rm -p 8080:8080 --env-file .env repohub-backend:dev
 
+.PHONY: up down
+up: ## Start PostgreSQL, Redis, migrations, and the API with docker compose
+	docker compose up --build -d --wait
+	@echo "API: http://localhost:8080/health"
+
+down: ## Stop the docker compose stack (keeps data; add -v to docker compose down to wipe it)
+	docker compose down
+
 .PHONY: run-backend open
 run-backend: ## Run the backend on http://localhost:8080
 	swift run --package-path $(BACKEND_DIR) App serve --hostname 0.0.0.0 --port 8080
