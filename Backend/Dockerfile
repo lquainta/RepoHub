@@ -23,17 +23,22 @@ RUN mkdir -p Packages/RepoHubCore/Sources/RepoHubCore \
     && rm -rf Packages/RepoHubCore/Sources
 
 COPY Packages/RepoHubCore Packages/RepoHubCore
+# The OpenAPI spec: Backend/Sources/*/openapi.yaml are symlinks to it.
+COPY openapi/openapi.yaml openapi/openapi.yaml
 COPY Backend/Sources Backend/Sources
 COPY Backend/Tests Backend/Tests
 
+# Resource bundles (such as the OpenAPI document) are copied next to the
+# binary: `.bundle` with Swift 6.4's build system, `.resources` before it.
+# `cp -L` dereferences symlinked resources.
 # Linked dynamically against the Swift runtime from the slim image below.
 # (--static-swift-stdlib fails to link Foundation with Swift 6.4.)
 RUN swift build --package-path Backend -c release --product App -Xlinker -ljemalloc \
     && mkdir /staging \
     && cp "$(swift build --package-path Backend -c release --show-bin-path)/App" /staging/ \
     && cp /usr/libexec/swift/linux/swift-backtrace-static /staging/ \
-    && find -L "$(swift build --package-path Backend -c release --show-bin-path)" \
-        -regex '.*\.resources$' -exec cp -Ra {} /staging/ \;
+    && find -L "$(swift build --package-path Backend -c release --show-bin-path)" -maxdepth 1 \
+        \( -name '*.resources' -o -name '*.bundle' \) -exec cp -RaL {} /staging/ \;
 
 # ---- Run -------------------------------------------------------------------
 # The Swift runtime libraries without the compiler.

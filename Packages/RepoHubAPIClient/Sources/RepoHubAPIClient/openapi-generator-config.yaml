@@ -1,0 +1,5 @@
+# The app's client, generated at build time from openapi/openapi.yaml.
+generate:
+  - types
+  - client
+accessModifier: public

@@ -6,6 +6,8 @@ included:
   - App/Tests
   - Packages/RepoHubCore/Sources
   - Packages/RepoHubCore/Tests
+  - Packages/RepoHubAPIClient/Sources
+  - Packages/RepoHubAPIClient/Tests
   - Backend/Sources
   - Backend/Tests
 

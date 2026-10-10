@@ -9,3 +9,4 @@
 !Packages/RepoHubCore/Package.swift
 !Packages/RepoHubCore/Sources/
 !Packages/RepoHubCore/Tests/
+!openapi/openapi.yaml
