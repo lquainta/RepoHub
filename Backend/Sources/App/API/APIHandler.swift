@@ -24,6 +24,29 @@ struct APIHandler: APIProtocol {
         .ok(.init(body: .json(.init(status: .ok, version: RepoHubCore.version, commit: app.config.buildCommit))))
     }
 
+    func getReadiness(_ input: Operations.getReadiness.Input) async throws -> Operations.getReadiness.Output {
+        let results = await app.readinessChecker.check()
+        func component(_ result: ReadinessChecker.Result) -> Components.Schemas.DependencyCheck {
+            .init(
+                status: result.isUp ? .up : .down,
+                latencyMs: result.latencyMilliseconds,
+                error: result.error
+            )
+        }
+        let body = Components.Schemas.Readiness(
+            status: results.database.isUp && results.cache.isUp ? .ready : .unavailable,
+            checks: .init(database: component(results.database), cache: component(results.cache))
+        )
+        guard body.status == .ready else {
+            logger.warning(
+                "Not ready",
+                metadata: ["database": "\(results.database.error ?? "up")", "cache": "\(results.cache.error ?? "up")"]
+            )
+            return .serviceUnavailable(.init(body: .json(body)))
+        }
+        return .ok(.init(body: .json(body)))
+    }
+
     // MARK: - Auth
 
     func startDeviceSignIn(
