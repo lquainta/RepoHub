@@ -12,6 +12,25 @@ info:
     so a change here that the code doesn't follow fails to compile.
 
     Errors use Vapor's format: `{"error": true, "reason": "..."}`.
+
+    ## Authentication
+
+    Sign-in uses GitHub's [device flow](https://docs.github.com/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#device-flow),
+    run by the backend so the GitHub token never reaches the app:
+
+    1. `POST /auth/device` returns a code to show the user and a GitHub URL to enter it at.
+    2. The app polls `POST /auth/device/token` every `interval` seconds until the user approves.
+    3. The response is a **session**: a short-lived access token (JWT, sent as
+       `Authorization: Bearer`) and a refresh token for `POST /auth/refresh`.
+       Refresh tokens rotate: each one works once.
+
+    Every operation requires a valid access token unless it lists `security: []`.
+
+    ## Limits
+
+    Requests are rate limited per client IP (stricter for `/auth`) and per
+    user; over the limit, the API answers `429` with `Retry-After`. Request
+    bodies are limited to 64 KB (1 MB for webhooks).
   license:
     name: MIT
     url: https://github.com/lquainta/RepoHub/blob/main/LICENSE
@@ -22,9 +41,17 @@ servers:
     description: Production
   - url: http://localhost:8080
     description: Local development (`make up` or `make run-backend`)
+security:
+  - bearerAuth: []
 tags:
   - name: Health
     description: Liveness and readiness checks for monitoring and deploys.
+  - name: Auth
+    description: GitHub sign-in and sessions.
+  - name: Account
+    description: The signed-in user.
+  - name: Webhooks
+    description: Events from GitHub.
 paths:
   /health:
     get:
@@ -47,7 +74,207 @@ paths:
                 status: ok
                 version: 0.1.0
                 commit: 3f89e9c
+  /auth/device:
+    post:
+      operationId: startDeviceSignIn
+      tags: [Auth]
+      summary: Start signing in with GitHub
+      description: Returns a code for the user to enter at `verificationURI`.
+      security: []
+      responses:
+        "200":
+          description: Show `userCode` and open `verificationURI`, then poll for the session.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeviceAuthorization"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "502":
+          $ref: "#/components/responses/GitHubUnavailable"
+        "503":
+          $ref: "#/components/responses/NotConfigured"
+  /auth/device/token:
+    post:
+      operationId: pollDeviceSignIn
+      tags: [Auth]
+      summary: Finish signing in with GitHub
+      description: |
+        Poll every `interval` seconds. While the user hasn't approved, the
+        response is `202`. Once they do, the response is a session for this
+        device.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeviceTokenRequest"
+      responses:
+        "200":
+          description: Signed in.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "202":
+          description: Not approved yet; poll again after `interval` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PendingSignIn"
+        "400":
+          description: The code expired, the user denied access, or the request is invalid.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "502":
+          $ref: "#/components/responses/GitHubUnavailable"
+        "503":
+          $ref: "#/components/responses/NotConfigured"
+  /auth/refresh:
+    post:
+      operationId: refreshSession
+      tags: [Auth]
+      summary: Get a new access token
+      description: Exchanges a refresh token for a new session. The refresh token can't be used again.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshRequest"
+      responses:
+        "200":
+          description: A new session.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /auth/signout:
+    post:
+      operationId: signOut
+      tags: [Auth]
+      summary: Sign this device out
+      description: |
+        Revokes this device's session. Signing out the last device also deletes
+        the stored GitHub token.
+      responses:
+        "204":
+          description: Signed out.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /me:
+    get:
+      operationId: getCurrentUser
+      tags: [Account]
+      summary: The signed-in user
+      responses:
+        "200":
+          description: The user's GitHub profile.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /webhooks/github:
+    post:
+      operationId: receiveGitHubWebhook
+      tags: [Webhooks]
+      summary: Receive a GitHub webhook delivery
+      description: |
+        Authenticated by GitHub's HMAC-SHA256 signature of the raw body
+        (`X-Hub-Signature-256`) with the shared webhook secret, not by a bearer
+        token. Deliveries with a missing or wrong signature are rejected. A
+        redelivered `X-GitHub-Delivery` is accepted but not processed twice.
+      security: []
+      parameters:
+        - name: X-Hub-Signature-256
+          in: header
+          required: true
+          description: "`sha256=` followed by the hex HMAC of the body."
+          schema:
+            type: string
+        - name: X-GitHub-Event
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: X-GitHub-Delivery
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "202":
+          description: Accepted (or already received).
+        "400":
+          description: The delivery is missing its repository.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/NotConfigured"
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Access token from a session (`POST /auth/device/token` or `POST /auth/refresh`). Expires after 15 minutes.
+  responses:
+    Unauthorized:
+      description: Missing, invalid, or expired credentials.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    RateLimited:
+      description: Too many requests. Retry after the number of seconds in `Retry-After`.
+      headers:
+        Retry-After:
+          description: Seconds until requests are accepted again.
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotConfigured:
+      description: This server isn't configured for the feature (for example, no GitHub client ID).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    GitHubUnavailable:
+      description: GitHub couldn't be reached or returned an unexpected response.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
   schemas:
     Health:
       type: object
@@ -65,3 +292,105 @@ components:
           type: string
           description: Git commit of the running build (`BUILD_COMMIT`), or `unknown`.
           example: 3f89e9c
+    DeviceAuthorization:
+      type: object
+      required: [deviceCode, userCode, verificationURI, expiresIn, interval]
+      properties:
+        deviceCode:
+          type: string
+          description: Pass back to `POST /auth/device/token`. Don't show it to the user.
+        userCode:
+          type: string
+          description: The code the user enters on GitHub.
+          example: WDJB-MJHT
+        verificationURI:
+          type: string
+          format: uri
+          example: https://github.com/login/device
+        expiresIn:
+          type: integer
+          description: Seconds until the code expires.
+          example: 899
+        interval:
+          type: integer
+          description: Minimum seconds between polls.
+          example: 5
+    DeviceTokenRequest:
+      type: object
+      required: [deviceCode, deviceName]
+      properties:
+        deviceCode:
+          type: string
+          minLength: 1
+          maxLength: 200
+        deviceName:
+          type: string
+          description: Shown in the user's list of signed-in devices.
+          minLength: 1
+          maxLength: 100
+          example: Ada's MacBook Pro
+    PendingSignIn:
+      type: object
+      required: [status, interval]
+      properties:
+        status:
+          type: string
+          enum: [pending, slowDown]
+          description: "`slowDown` means polling too often: use the new `interval`."
+        interval:
+          type: integer
+          example: 5
+    RefreshRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+          minLength: 1
+          maxLength: 200
+    Session:
+      type: object
+      required: [accessToken, refreshToken, tokenType, expiresIn, user]
+      properties:
+        accessToken:
+          type: string
+          description: "JWT for the `Authorization: Bearer` header."
+        refreshToken:
+          type: string
+          description: Single-use. Store it in the Keychain.
+        tokenType:
+          type: string
+          enum: [Bearer]
+        expiresIn:
+          type: integer
+          description: Seconds until the access token expires.
+          example: 900
+        user:
+          $ref: "#/components/schemas/UserProfile"
+    UserProfile:
+      type: object
+      required: [id, login]
+      properties:
+        id:
+          type: string
+          format: uuid
+        login:
+          type: string
+          example: octocat
+        name:
+          type: string
+          example: The Octocat
+        avatarURL:
+          type: string
+          format: uri
+    Error:
+      type: object
+      description: Vapor's error response.
+      required: [error, reason]
+      properties:
+        error:
+          type: boolean
+          const: true
+        reason:
+          type: string
+          description: A human-readable explanation. Never contains secrets.

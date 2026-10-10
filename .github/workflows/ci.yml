@@ -235,6 +235,9 @@ jobs:
           docker run -d --name api -p 8080:8080 \
             -e "DATABASE_URL=postgres://repohub@localhost:5432/unused?sslmode=disable" \
             -e "REDIS_URL=redis://localhost:6379" \
+            -e "JWT_SIGNING_KEY=$(openssl rand -base64 32)" \
+            -e "TOKEN_ENCRYPTION_KEY=$(openssl rand -base64 32)" \
+            -e "GITHUB_CLIENT_ID=ci" -e "GITHUB_WEBHOOK_SECRET=$(openssl rand -hex 16)" \
             repohub-backend:ci
           for _ in $(seq 1 30); do curl -fsS localhost:8080/health && break; sleep 1; done
           # Whitespace-tolerant: the generated server pretty-prints JSON.
