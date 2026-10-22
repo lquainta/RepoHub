@@ -80,6 +80,8 @@ final class AccessibilityTests: XCTestCase {
     }
 
     func testDashboardAndDetail() throws {
+        // A known selection, so the selected-row rule applies to the same row every run.
+        app.descendants(matching: .any)["repository-clean"].click()
         try audit("Dashboard")
         app.descendants(matching: .any)["repository-dirty"].click()
         XCTAssertTrue(app.descendants(matching: .any)["repositoryDetail"].waitForExistence(timeout: 10))
