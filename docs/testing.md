@@ -71,6 +71,12 @@ RepoHub has three kinds of tests. Every PR must keep all of them green in CI.
   | Time | `Task.sleep`, `Date.init` | injected `sleep` / `now` closures (`TestClock`) |
 
   What's covered, by view model: `LibraryViewModel` (scanning, rescans, folders, groups, scope, search and quick filters, selection, Fetch All, GitHub badges), `RepositoryFilter` and `DashboardSort` (search, filters, every sort column), `StatusMonitor` (refresh, bounded concurrency, re-requests, error states), `RepositoryDetailModel` (loading, failures, stale selections), `RepositoryActions` (fetch, pull, open, copy, failures), `StaleBranchModel` (preselection and the force-delete confirmation flow), `AccountModel` (device flow, restore, refresh, sign-out), `GitHubStatusModel`, `SettingsModel`, and `AttentionSummary`. Only the FSEvents watcher tests (`AutoRefreshTests`) use the real file system, in a temporary folder they create and delete.
+- **Snapshot tests** (`App/Tests/RepoHubTests/Snapshots`, [swift-snapshot-testing](https://github.com/pointfreeco/swift-snapshot-testing)) render key views (empty state, status labels, the GitHub section, Account settings) in **light and dark mode, in English and Spanish**, and compare them with the reference images in `__Snapshots__/`. A visual change fails the test until the references are updated in the same PR.
+
+  Text renders a little differently on each macOS version, so **references are recorded on CI's runner (macOS 26)** and the tests are skipped on other versions. To add or update one:
+  1. Delete the old image (or add a new test) and push.
+  2. CI records the missing image, fails, and uploads the **`app-snapshots`** artifact.
+  3. Download it (`gh run download <run> -n app-snapshots -D App/Tests/RepoHubTests/Snapshots/__Snapshots__`), look at the images, and commit them.
 - **UI tests** cover the main user flows end to end. Keep them few and focused. They run against an in-memory store, fixture repositories, and a stubbed backend, never the developer's real folders, Keychain, or the production API. Environment variables set this up (see `UITestSupport`):
 
   | Variable | Effect |
