@@ -26,6 +26,9 @@ packages:
   Sentry:
     url: https://github.com/getsentry/sentry-cocoa
     exactVersion: 9.29.2
+  SnapshotTesting:
+    url: https://github.com/pointfreeco/swift-snapshot-testing
+    exactVersion: 1.19.6
 targets:
   RepoHub:
     type: application
@@ -78,9 +81,13 @@ targets:
     type: bundle.unit-test
     platform: macOS
     sources:
-      - Tests/RepoHubTests
+      - path: Tests/RepoHubTests
+        excludes:
+          - "**/__Snapshots__/**"
     dependencies:
       - target: RepoHub
+      - package: SnapshotTesting
+        product: SnapshotTesting
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES

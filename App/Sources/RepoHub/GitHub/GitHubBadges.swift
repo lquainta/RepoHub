@@ -56,7 +56,7 @@ struct ChecksBadge: View {
                 .foregroundStyle(color)
         }
         .help(description)
-        .accessibilityLabel(Text(description))
+        .accessibilityLabel(description)
     }
 
     private var symbol: String {
@@ -75,11 +75,12 @@ struct ChecksBadge: View {
         }
     }
 
-    var description: String {
+    /// Localized by SwiftUI, so it follows the view's locale.
+    var description: Text {
         switch checks.state {
-        case .success: String(localized: "CI passed (\(checks.total) checks)")
-        case .failure: String(localized: "CI failed (\(checks.failed) of \(checks.total) checks)")
-        case .pending: String(localized: "CI running (\(checks.pending) of \(checks.total) checks)")
+        case .success: Text("CI passed (\(checks.total) checks)")
+        case .failure: Text("CI failed (\(checks.failed) of \(checks.total) checks)")
+        case .pending: Text("CI running (\(checks.pending) of \(checks.total) checks)")
         }
     }
 }
@@ -95,7 +96,7 @@ struct GitHubSection: View {
                 LabeledContent("CI") {
                     HStack {
                         ChecksBadge(checks: checks)
-                        Text(ChecksBadge(checks: checks).description)
+                        ChecksBadge(checks: checks).description
                     }
                 }
             }
