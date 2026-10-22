@@ -27,7 +27,7 @@ team=$(api "organizations/$org/teams/" | jq -r '.[0].slug')
 [ -n "$team" ] && [ "$team" != null ] || { echo "error: no team in $org" >&2; exit 1; }
 
 project() { # slug platform
-    if ! api "projects/$org/$1/" >/dev/null 2>&1; then
+    if ! api "projects/$org/$1/" >/dev/null 2>&1; then  # 404: not created yet
         api "teams/$org/$team/projects/" -X POST -d "{\"name\":\"$1\",\"slug\":\"$1\",\"platform\":\"$2\"}" >/dev/null
         echo "created $1"
     fi
@@ -37,24 +37,32 @@ project() { # slug platform
 backend_dsn=$(project repohub-backend other)
 app_dsn=$(project repohub-macos apple-macos)
 
-# Email on new or regressed app issues, and on crash spikes (#52). The
-# backend emails directly (EmailAlerter), so it doesn't need these.
-rule() { # name, conditions JSON
-    if ! api "projects/$org/repohub-macos/rules/" | jq -e --arg name "$1" '.[] | select(.name == $name)' >/dev/null; then
-        api "projects/$org/repohub-macos/rules/" -X POST -d "{
-            \"name\": \"$1\", \"actionMatch\": \"any\", \"frequency\": 30,
-            \"conditions\": $2,
-            \"actions\": [{\"id\": \"sentry.mail.actions.NotifyEmailAction\",
-                \"targetType\": \"IssueOwners\", \"fallthroughType\": \"ActiveMembers\"}]
-        }" >/dev/null
-        echo "added alert rule: $1"
-    fi
-}
-rule "Email on new or regressed crashes" '[
-    {"id": "sentry.rules.conditions.first_seen_event.FirstSeenEventCondition"},
-    {"id": "sentry.rules.conditions.regression_event.RegressionEventCondition"}]'
-rule "Email on crash spikes" '[
-    {"id": "sentry.rules.conditions.event_frequency.EventFrequencyCondition", "value": 10, "interval": "1h"}]'
+# Email on new or regressed app crashes (#52). Sentry's new alert engine
+# ("workflows") attaches them to the project's issue-stream detector. Crash
+# spikes are already covered: Sentry marks a spiking issue as escalating and
+# high priority, and every new project gets a default workflow that emails on
+# high-priority issues. The backend emails directly (EmailAlerter).
+# Workflows need a token with the alerts:write scope.
+project_id=$(api "projects/$org/repohub-macos/" | jq -r .id)
+detector=$(api "organizations/$org/detectors/?project=$project_id" | jq -r '.[] | select(.type == "issue_stream") | .id')
+name="Email on new or regressed crashes"
+if api "organizations/$org/workflows/" | jq -e --arg name "$name" '.[] | select(.name == $name)' >/dev/null; then
+    echo "alert workflow exists: $name"
+elif api "organizations/$org/workflows/" -X POST -d "{
+    \"name\": \"$name\", \"enabled\": true, \"config\": {\"frequency\": 30}, \"environment\": null,
+    \"detectorIds\": [\"$detector\"],
+    \"triggers\": {\"logicType\": \"any-short\", \"actions\": [], \"conditions\": [
+        {\"type\": \"first_seen_event\", \"comparison\": true, \"conditionResult\": true},
+        {\"type\": \"regression_event\", \"comparison\": true, \"conditionResult\": true}]},
+    \"actionFilters\": [{\"logicType\": \"any-short\", \"conditions\": [], \"actions\": [
+        {\"type\": \"email\", \"data\": {\"fallthroughType\": \"ActiveMembers\"},
+         \"config\": {\"targetType\": \"issue_owners\", \"targetIdentifier\": null}}]}]
+}" >/dev/null 2>&1; then
+    echo "added alert workflow: $name"
+else
+    echo "warning: couldn't add the alert workflow \"$name\": the token needs the alerts:write scope." >&2
+    echo "  Add it at https://sentry.io/settings/account/api/auth-tokens/ and run this script again." >&2
+fi
 
 gh variable set SENTRY_DSN_APP --repo "$repo" --body "$app_dsn"
 
