@@ -1,0 +1,42 @@
+# Versioning from Conventional Commits (release-please).
+#
+# Every push to main updates a release PR that bumps the version and adds the
+# merged changes to CHANGELOG.md. Merging that PR tags the commit (vX.Y.Z) and
+# publishes a GitHub Release with the same notes.
+#
+# RELEASE_PLEASE_TOKEN is a fine-grained token (contents and pull requests:
+# write on this repository). The default GITHUB_TOKEN would work, but pull
+# requests it opens don't trigger CI, so the release PR could never pass the
+# required checks.
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: release-please
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    name: Release PR and tag
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - id: release
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+      - name: Summary
+        if: steps.release.outputs.release_created
+        run: echo "Released [${{ steps.release.outputs.tag_name }}](${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ steps.release.outputs.tag_name }})" >> "$GITHUB_STEP_SUMMARY"

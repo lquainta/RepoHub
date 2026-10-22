@@ -70,6 +70,17 @@ A change is done when:
 - lint and format checks pass
 - documentation, diagrams, ADRs, or the OpenAPI spec are updated if affected
 
+## Releases
+
+Versions follow [Semantic Versioning](https://semver.org) and come from the Conventional Commit titles of merged PRs, so nobody picks a version by hand. [release-please](https://github.com/googleapis/release-please) (`.github/workflows/release.yml`) keeps a release PR open, titled `chore: release X.Y.Z`:
+
+- `feat` bumps the minor version, `fix` and `perf` bump the patch, and a `!` or `BREAKING CHANGE:` footer bumps the major (the minor while we're below 1.0).
+- The PR updates `CHANGELOG.md`, `version.txt`, `MARKETING_VERSION` in `App/project.yml`, and `RepoHubCore.version`. Lines it edits are marked `x-release-please-version`.
+- **Merging it** tags the merge commit `vX.Y.Z` and publishes a GitHub Release with the changelog entry as its notes.
+- The app's build number (`CFBundleVersion`) is the commit count, set by `make build-app`.
+
+Release PRs don't need a linked issue. Like any PR, they need green checks.
+
 ## Architecture decisions
 
 Significant decisions (a new service, library, data store, or a change to how components talk) get an [Architecture Decision Record](docs/adr/README.md) in the same PR. Copy [`docs/adr/template.md`](docs/adr/template.md); never rewrite an accepted ADR. Supersede it with a new one instead.

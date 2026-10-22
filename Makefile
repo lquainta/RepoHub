@@ -45,8 +45,12 @@ build-core: ## Build the RepoHubCore package
 build-backend: ## Build the Vapor backend
 	swift build --package-path $(BACKEND_DIR)
 
+# The version (MARKETING_VERSION) is bumped in App/project.yml by the release PR;
+# the build number is the commit count, so it increases with every commit on main.
+BUILD_NUMBER ?= $(shell git rev-list --count HEAD 2>/dev/null || echo 1)
+
 build-app: generate ## Build the macOS app
-	$(XCODEBUILD) build
+	$(XCODEBUILD) build CURRENT_PROJECT_VERSION=$(BUILD_NUMBER)
 
 .PHONY: test test-core test-backend test-app test-ui
 test: test-core test-backend test-app ## Run all unit and integration tests (UI tests: make test-ui)
