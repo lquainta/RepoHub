@@ -20,6 +20,9 @@ struct RepoHubApp: App {
 
     init() {
         let environment = ProcessInfo.processInfo.environment
+        if !UITestSupport.usesInMemoryStore(environment) {
+            CrashReporting.start(environment: environment)
+        }
         let container = Self.makeContainer(environment: environment)
         self.container = container
         let api = RepoHubAPI(baseURL: AppPreferences.backendURL(environment))

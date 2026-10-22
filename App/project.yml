@@ -23,6 +23,9 @@ packages:
     path: ../Packages/RepoHubCore
   RepoHubAPIClient:
     path: ../Packages/RepoHubAPIClient
+  Sentry:
+    url: https://github.com/getsentry/sentry-cocoa
+    exactVersion: 9.29.2
 targets:
   RepoHub:
     type: application
@@ -32,8 +35,20 @@ targets:
     dependencies:
       - package: RepoHubCore
       - package: RepoHubAPIClient
+      - package: Sentry
+    info:
+      path: Sources/RepoHub/Info.plist
+      properties:
+        # From the build settings, so release-please's version and the
+        # commit-count build number apply (#62).
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        # Crash reporting (#51). Empty unless a release build passes
+        # SENTRY_DSN=...; DSNs are public by design.
+        SentryDSN: $(SENTRY_DSN)
     settings:
       base:
+        SENTRY_DSN: ""
         PRODUCT_BUNDLE_IDENTIFIER: com.lquainta.RepoHub
         PRODUCT_NAME: RepoHub
         GENERATE_INFOPLIST_FILE: YES

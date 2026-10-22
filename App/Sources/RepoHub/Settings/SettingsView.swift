@@ -47,6 +47,17 @@ private struct GeneralSettings: View {
                     .disabled(!settings.showMenuBarExtra)
             }
             Section {
+                Toggle("Send crash reports to the developer", isOn: $settings.sendCrashReports)
+                Text(
+                    """
+                    Reports include the error and app version, never your repositories' paths or contents. \
+                    Takes effect the next time RepoHub opens.
+                    """
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+            Section {
                 Picker("Fetch all repositories", selection: $settings.backgroundFetchMinutes) {
                     Text("Never").tag(0)
                     Text("Every 5 minutes").tag(5)
