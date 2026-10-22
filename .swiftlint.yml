@@ -88,4 +88,11 @@ custom_rules:
     message: "Use Logger (os.Logger in the app, swift-log in the backend) instead of print()."
     severity: error
 
+  no_verbatim_text:
+    name: "Localizable UI text"
+    regex: "Text\\(verbatim:"
+    included: "App/Sources/.*\\.swift"
+    message: "UI text must be localizable (#57): use Text(\"...\") with a String Catalog entry. Disable on the line only for text that must never be translated, such as git ref names."
+    severity: error
+
 reporter: xcode

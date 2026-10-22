@@ -104,6 +104,17 @@ Logs must help diagnose problems without leaking anything private.
   - mark anything that can identify the user, such as file paths, remote URLs, or git's stderr, as `privacy: .private`
   - `.public` is only for fixed strings and counts
 
+## Localization
+
+The app is in **English and Spanish** (#57). UI text lives in `App/Sources/RepoHub/Localizable.xcstrings` (a String Catalog), and `Info.plist` text lives in `InfoPlist.xcstrings`.
+
+- Write UI text as literals, `Text("Fetch All")` or `String(localized: "…")`. Xcode extracts them into the catalog. Don't build sentences from pieces; use one string with placeholders.
+- **Every string needs a Spanish translation.** `make check-localizations` (in CI) exports the strings and fails on any without one, so adding UI text means translating it. Add it in Xcode's catalog editor.
+- Counts use **plural variations** in both languages ("1 day" and "2 days").
+- Dates and numbers use `format:` (`.relative`, `.number`), which follows the user's locale.
+- `Text(verbatim:)` is blocked by SwiftLint (`no_verbatim_text`). Disable it on a line only for text that is never translated, such as git ref names.
+- `LocalizationTests` runs the app with `-AppleLanguages (es)` and checks for Spanish text and no English leftovers. Try it yourself with the same launch argument in the scheme.
+
 ## Architecture decisions
 
 Significant decisions (a new service, library, data store, or a change to how components talk) get an [Architecture Decision Record](docs/adr/README.md) in the same PR. Copy [`docs/adr/template.md`](docs/adr/template.md); never rewrite an accepted ADR. Supersede it with a new one instead.

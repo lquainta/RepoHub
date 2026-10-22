@@ -88,6 +88,10 @@ coverage: ## Run tests with coverage and write LCOV reports to coverage/
 	$(MAKE) test-app DERIVED_DATA=build/DerivedData
 	scripts/app-coverage.sh build/DerivedData coverage/app.lcov
 
+.PHONY: check-localizations
+check-localizations: generate ## Fail if any UI string has no Spanish translation
+	scripts/check-localizations.sh
+
 .PHONY: bench
 bench: ## Run the performance benchmarks in a release build (budgets fail on regressions)
 	REPOHUB_BENCHMARK=1 swift test -c release --package-path $(CORE_DIR) --filter PerformanceTests

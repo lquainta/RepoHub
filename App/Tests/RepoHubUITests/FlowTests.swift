@@ -91,7 +91,7 @@ final class FlowTests: XCTestCase {
         let list = element("staleBranchList")
         XCTAssertTrue(list.waitForExistence(timeout: 10))
         XCTAssertTrue(element(in: list, containing: "old-feature").waitForExistence(timeout: 5))
-        app.buttons["Delete 1 Branches"].click()
+        app.buttons["Delete 1 Branch"].click()
 
         XCTAssertTrue(element(in: app, containing: "Deleted (1)").waitForExistence(timeout: 10))
         app.buttons["Done"].click()
