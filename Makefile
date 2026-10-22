@@ -88,6 +88,12 @@ coverage: ## Run tests with coverage and write LCOV reports to coverage/
 	$(MAKE) test-app DERIVED_DATA=build/DerivedData
 	scripts/app-coverage.sh build/DerivedData coverage/app.lcov
 
+.PHONY: test-integration
+test-integration: ## Backend tests against the docker-compose Postgres and Redis (run `make up` first)
+	docker compose exec -T postgres sh -c 'createdb -U repohub repohub_test 2>/dev/null || true'
+	TEST_DATABASE_URL=postgres://repohub:repohub@localhost:$${POSTGRES_PORT:-5432}/repohub_test \
+	TEST_REDIS_URL=redis://localhost:$${REDIS_PORT:-6379} $(MAKE) test-backend
+
 .PHONY: check-localizations
 check-localizations: generate ## Fail if any UI string has no Spanish translation
 	scripts/check-localizations.sh
