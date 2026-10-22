@@ -71,7 +71,16 @@ RepoHub has three kinds of tests. Every PR must keep all of them green in CI.
   | Time | `Task.sleep`, `Date.init` | injected `sleep` / `now` closures (`TestClock`) |
 
   What's covered, by view model: `LibraryViewModel` (scanning, rescans, folders, groups, scope, search and quick filters, selection, Fetch All, GitHub badges), `RepositoryFilter` and `DashboardSort` (search, filters, every sort column), `StatusMonitor` (refresh, bounded concurrency, re-requests, error states), `RepositoryDetailModel` (loading, failures, stale selections), `RepositoryActions` (fetch, pull, open, copy, failures), `StaleBranchModel` (preselection and the force-delete confirmation flow), `AccountModel` (device flow, restore, refresh, sign-out), `GitHubStatusModel`, `SettingsModel`, and `AttentionSummary`. Only the FSEvents watcher tests (`AutoRefreshTests`) use the real file system, in a temporary folder they create and delete.
-- **UI tests** cover the main user flows end to end. Keep them few and focused. Use launch arguments to point the app at fixture repositories and a stubbed backend, never at the developer's real folders.
+- **UI tests** cover the main user flows end to end. Keep them few and focused. They run against an in-memory store, fixture repositories, and a stubbed backend, never the developer's real folders, Keychain, or the production API. Environment variables set this up (see `UITestSupport`):
+
+  | Variable | Effect |
+  | --- | --- |
+  | `REPOHUB_UI_TEST_IN_MEMORY_STORE=1` | Empty in-memory SwiftData store and credential store; no notification prompts or crash reporting |
+  | `REPOHUB_UI_TEST_FIXTURE_REPOSITORIES` | Folders with empty `.git` directories, for scanning |
+  | `REPOHUB_UI_TEST_GIT_FIXTURES=1` | Real repositories made with `git`: `clean`, `dirty` (an untracked file), and `stale` (a merged `old-feature` branch) |
+  | `REPOHUB_UI_TEST_STUB_BACKEND=1` | `UITestBackend`: sign-in shows `TEST-CODE` and is approved at once as `octocat`; no browser is opened |
+
+  `FlowTests` covers adding a folder (repositories listed), filtering by uncommitted changes, opening a repository's details, cleaning up a merged branch, and signing in and out. `LaunchTests` covers the empty state and scanning. On failure, a test attaches the app's accessibility tree to the result bundle. SwiftUI often exposes a row's text as one combined **value** rather than a label, so match with `label CONTAINS … OR value CONTAINS …`.
 
 Don't write tests for trivial getters, setters, or memberwise initializers.
 
