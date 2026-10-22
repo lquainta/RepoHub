@@ -1,7 +1,8 @@
 import Vapor
 
 extension Application {
-    /// Reports unhandled errors to Sentry when `SENTRY_DSN` is set, and adds
+    /// Reports unhandled errors to Sentry when `SENTRY_DSN` is set, emails the
+    /// maintainer when `EMAIL_API_KEY` and `ALERT_EMAIL_TO` are set, and adds
     /// `GET /debug/error` when `DEBUG_TOKEN` is set.
     func configureErrorReporting(_ config: AppConfig) {
         var reporters: [any ErrorReporting] = []
@@ -10,7 +11,17 @@ extension Application {
                 SentryReporter(dsn: dsn, environment: environment.name, release: config.buildCommit, client: client)
             )
         } else {
-            logger.notice("SENTRY_DSN is not set; unhandled errors are only logged")
+            logger.notice("SENTRY_DSN is not set; unhandled errors aren't sent to Sentry")
+        }
+        if let email = config.emailAlerts {
+            reporters.append(
+                EmailAlerter(
+                    mailer: ResendMailer(apiKey: email.apiKey, client: client),
+                    recipient: email.recipient,
+                    store: cacheStore,
+                    environment: environment.name
+                )
+            )
         }
         if !reporters.isEmpty {
             // After Vapor's ErrorMiddleware, so errors pass through here first.
