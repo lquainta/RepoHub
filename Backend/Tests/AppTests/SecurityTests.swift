@@ -116,6 +116,7 @@ private struct UnavailableCacheStore: CacheStore {
     func addToSet(_ key: String, member: String, expiresIn seconds: Int) async throws {}
     func members(ofSet key: String) async throws -> [String] { [] }
     func increment(_ key: String, expiresIn seconds: Int) async throws -> Int { throw Failure() }
+    func ping() async throws { throw Failure() }
 }
 
 @Suite("RateLimiter")

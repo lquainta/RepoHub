@@ -1,6 +1,6 @@
 import Vapor
 
-/// Limits requests per client IP; `/auth` has a stricter limit. `/health` is exempt.
+/// Limits requests per client IP; `/auth` has a stricter limit. `/health` and `/ready` are exempt (monitors poll them).
 struct RateLimitMiddleware: AsyncMiddleware {
     let limiter: RateLimiter
     let limitPerMinute: Int
@@ -11,7 +11,7 @@ struct RateLimitMiddleware: AsyncMiddleware {
 
     func respond(to request: Request, chainingTo next: any AsyncResponder) async throws -> Response {
         let path = request.url.path
-        guard path != "/health" else {
+        guard path != "/health", path != "/ready" else {
             return try await next.respond(to: request)
         }
         let isAuth = path.hasPrefix("/auth/")

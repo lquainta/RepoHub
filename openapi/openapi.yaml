@@ -74,6 +74,30 @@ paths:
                 status: ok
                 version: 0.1.0
                 commit: 3f89e9c
+  /ready:
+    get:
+      operationId: getReadiness
+      tags: [Health]
+      summary: Readiness check
+      description: |
+        Checks that the server can reach PostgreSQL and Redis. Load balancers
+        and the uptime monitor use it to stop sending traffic to, or alert
+        on, an instance that can't serve requests. Each check has a short
+        timeout, so a hung dependency fails fast instead of hanging the probe.
+      security: []
+      responses:
+        "200":
+          description: Every dependency is reachable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Readiness"
+        "503":
+          description: At least one dependency is unreachable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Readiness"
   /auth/device:
     post:
       operationId: startDeviceSignIn
@@ -292,6 +316,34 @@ components:
           type: string
           description: Git commit of the running build (`BUILD_COMMIT`), or `unknown`.
           example: 3f89e9c
+    Readiness:
+      type: object
+      required: [status, checks]
+      properties:
+        status:
+          type: string
+          enum: [ready, unavailable]
+        checks:
+          type: object
+          required: [database, cache]
+          properties:
+            database:
+              $ref: "#/components/schemas/DependencyCheck"
+            cache:
+              $ref: "#/components/schemas/DependencyCheck"
+    DependencyCheck:
+      type: object
+      required: [status, latencyMs]
+      properties:
+        status:
+          type: string
+          enum: [up, down]
+        latencyMs:
+          type: integer
+          description: How long the check took, in milliseconds.
+        error:
+          type: string
+          description: Why the check failed. Never contains credentials.
     DeviceAuthorization:
       type: object
       required: [deviceCode, userCode, verificationURI, expiresIn, interval]
