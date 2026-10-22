@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RepoHub Documentation</title>
+  <style>
+    :root { color-scheme: light dark; font-family: -apple-system, system-ui, sans-serif; }
+    body { max-width: 40rem; margin: 4rem auto; padding: 0 1rem; line-height: 1.5; }
+    a { font-weight: 600; }
+    li { margin: 0.75rem 0; }
+  </style>
+</head>
+<body>
+  <h1>RepoHub Documentation</h1>
+  <p>Code documentation generated with DocC from the <a href="https://github.com/lquainta/RepoHub">RepoHub</a> sources on every push to <code>main</code>.</p>
+  <ul>
+    <li><a href="core/documentation/repohubcore/">RepoHubCore</a>: the shared git package (status, details, scanning, stale branches).</li>
+    <li><a href="backend/documentation/app/">Backend</a>: the Vapor server (sign-in, GitHub data, sync, live updates).</li>
+    <li><a href="https://repohub-backend.fly.dev/docs">API reference</a>: the OpenAPI spec, served by the backend.</li>
+  </ul>
+</body>
+</html>

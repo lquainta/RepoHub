@@ -9,6 +9,10 @@ let package = Package(
     products: [
         .library(name: "RepoHubCore", targets: ["RepoHubCore"])
     ],
+    dependencies: [
+        // `swift package generate-documentation` (#56); not linked into anything.
+        .package(url: "https://github.com/swiftlang/swift-docc-plugin", from: "1.5.0")
+    ],
     targets: [
         .target(
             name: "RepoHubCore",
