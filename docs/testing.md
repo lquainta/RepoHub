@@ -71,6 +71,21 @@ RepoHub has three kinds of tests. Every PR must keep all of them green in CI.
   | Time | `Task.sleep`, `Date.init` | injected `sleep` / `now` closures (`TestClock`) |
 
   What's covered, by view model: `LibraryViewModel` (scanning, rescans, folders, groups, scope, search and quick filters, selection, Fetch All, GitHub badges), `RepositoryFilter` and `DashboardSort` (search, filters, every sort column), `StatusMonitor` (refresh, bounded concurrency, re-requests, error states), `RepositoryDetailModel` (loading, failures, stale selections), `RepositoryActions` (fetch, pull, open, copy, failures), `StaleBranchModel` (preselection and the force-delete confirmation flow), `AccountModel` (device flow, restore, refresh, sign-out), `GitHubStatusModel`, `SettingsModel`, and `AttentionSummary`. Only the FSEvents watcher tests (`AutoRefreshTests`) use the real file system, in a temporary folder they create and delete.
+- **Backend routes** each have success and failure tests. `RouteCoverageTests` reads `openapi.yaml` and checks that **every protected operation answers 401 without a token**, so new endpoints are covered automatically:
+
+  | Route | Success | Failure |
+  | --- | --- | --- |
+  | `GET /health`, `/ready` | ok; ready with Postgres and Redis | `/ready` 503 when the database is unreachable; unknown routes 404 |
+  | `POST /auth/device`, `/auth/device/token` | device code; pending, then a session | 503 not configured; expired or denied code; rate limited |
+  | `POST /auth/refresh`, `/auth/signout`, `GET /me` | rotation; sign-out; profile | reused or revoked refresh token, revoked access token, forged or malformed tokens: 401 |
+  | `POST /github/status` | pull requests, review requests, checks; cached | 401; 400 for an empty batch; per-repository `notFound`, `unauthorized`, `rateLimited`, `unavailable` |
+  | `GET /events` | a webhook reaches the right user's stream | 401; other users get nothing |
+  | `GET`, `PATCH /workspace`; `PUT`, `DELETE /workspace/groups/{id}` | two Macs sync; last write wins; merge by name; tombstones | 401; 400 for an ID that doesn't match the path; older changes ignored |
+  | `GET /activity`, `POST /activity/snapshots` | upload and history | 401; 400 for a malformed day |
+  | `POST /webhooks/github` | stored once per delivery | 401 for a missing or wrong signature; 503 without a secret |
+
+  The GitHub client (`VaporGitHubAPI`) is tested against a stub HTTP client: headers and token, ETag and `304`, rate-limit headers (`403` with no remaining requests, and `429`) mapped to `rateLimited`, other errors mapped, and **pagination** (`Link: rel="next"`, up to 5 pages for open pull requests, never followed to another host).
+
 - **Snapshot tests** (`App/Tests/RepoHubTests/Snapshots`, [swift-snapshot-testing](https://github.com/pointfreeco/swift-snapshot-testing)) render key views (empty state, status labels, the GitHub section, Account settings) in **light and dark mode, in English and Spanish**, and compare them with the reference images in `__Snapshots__/`. A visual change fails the test until the references are updated in the same PR.
 
   Text renders a little differently on each macOS version, so **references are recorded on CI's runner (macOS 26)** and the tests are skipped on other versions. To add or update one:

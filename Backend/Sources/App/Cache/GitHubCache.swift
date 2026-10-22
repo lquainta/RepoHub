@@ -31,6 +31,14 @@ enum GitHubResource: Sendable, Equatable {
         }
     }
 
+    /// Whether every page is fetched and combined (lists), or only the first.
+    var isPaginated: Bool {
+        if case .pullRequests = self {
+            return true
+        }
+        return false
+    }
+
     var keySuffix: String {
         switch self {
         case .repository: "repo"
@@ -94,12 +102,43 @@ struct GitHubCache: Sendable {
             entry = Entry(etag: cached.etag, body: cached.body, fetchedAt: now())
             outcome = .revalidated
         } else {
-            entry = Entry(etag: response.etag, body: response.body, fetchedAt: now())
+            let body = resource.isPaginated ? try await allPages(from: response, token: token) : response.body
+            entry = Entry(etag: response.etag, body: body, fetchedAt: now())
             outcome = .miss
         }
         await write(entry, key: key, repo: repo, ttl: resource.timeToLive)
         log(outcome, resource: resource, repo: repo, remaining: response.rateLimitRemaining)
         return (entry.body, outcome)
+    }
+
+    /// The most pages fetched for one list (500 pull requests at 100 per page).
+    static let maxPages = 5
+
+    /// `first` combined with the pages after it, up to ``maxPages`` in total.
+    /// The cached ETag is the first page's, so a list only changes when its
+    /// first page does or the entry expires; for open pull requests, newest
+    /// first, that's when a pull request is opened or updated.
+    private func allPages(from first: GitHubResponse, token: String) async throws -> Data {
+        guard first.nextPath != nil else {
+            return first.body
+        }
+        var items = try Self.jsonArray(first.body)
+        var next = first.nextPath
+        var pages = 1
+        while let path = next, pages < Self.maxPages {
+            let page = try await api.get(path, token: token, etag: nil)
+            items += try Self.jsonArray(page.body)
+            next = page.nextPath
+            pages += 1
+        }
+        return try JSONSerialization.data(withJSONObject: items)
+    }
+
+    private static func jsonArray(_ data: Data) throws -> [Any] {
+        guard let array = try JSONSerialization.jsonObject(with: data) as? [Any] else {
+            throw GitHubError.unexpectedStatus(200)
+        }
+        return array
     }
 
     /// Deletes every user's cached responses for `owner/name` (for webhooks)
