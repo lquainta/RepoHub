@@ -343,7 +343,8 @@ struct LibraryViewModelScopeTests {
                     == RepositoryFacts(
                         remoteCount: 1,
                         staleBranchCount: 0,
-                        gitHub: GitHubRepository(owner: "owner", name: row.name)
+                        gitHub: GitHubRepository(owner: "owner", name: row.name),
+                        remoteIdentity: "github.com/owner/\(row.name)"
                     )
             }
         )

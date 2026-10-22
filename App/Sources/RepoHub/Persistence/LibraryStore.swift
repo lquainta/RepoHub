@@ -75,6 +75,7 @@ final class LibraryStore {
         let name = try validatedGroupName(name, excluding: nil)
         let group = RepoGroup(name: name)
         context.insert(group)
+        group.modifiedAt = .now
         try context.save()
         return group
     }
@@ -84,13 +85,19 @@ final class LibraryStore {
     /// - Throws: ``GroupError`` if the name is empty or used by another group.
     func rename(_ group: RepoGroup, to name: String) throws {
         group.name = try validatedGroupName(name, excluding: group)
+        group.modifiedAt = .now
         try context.save()
     }
 
     /// Deletes `group`. Its repositories stay tracked.
-    func deleteGroup(_ group: RepoGroup) throws {
+    ///
+    /// - Returns: The group's sync ID, if it was synced, so other Macs can be told.
+    @discardableResult
+    func deleteGroup(_ group: RepoGroup) throws -> UUID? {
+        let syncID = group.syncID
         context.delete(group)
         try context.save()
+        return syncID
     }
 
     /// Adds the repositories at `paths` to `group`; ones already in it are ignored.
@@ -100,12 +107,86 @@ final class LibraryStore {
         {
             group.repositories.append(repository)
         }
+        group.modifiedAt = .now
         try context.save()
     }
 
     /// Removes the repositories at `paths` from `group`.
     func remove(_ paths: [String], from group: RepoGroup) throws {
         group.repositories.removeAll { paths.contains($0.path) }
+        group.modifiedAt = .now
+        try context.save()
+    }
+
+    // MARK: - Sync
+
+    /// Applies a group from another Mac if it's newer than the local one
+    /// (last write wins), matching by sync ID, then by name.
+    ///
+    /// - Parameters:
+    ///   - remote: The group as the server stores it.
+    ///   - identity: A tracked repository's remote identity, if known.
+    /// - Throws: An error if the store can't be read or saved.
+    func applySynced(_ remote: SyncedGroup, identity: (TrackedRepository) -> String?) throws {
+        let local =
+            try groups().first { $0.syncID == remote.id }
+            ?? groups().first { $0.name.localizedCaseInsensitiveCompare(remote.name) == .orderedSame }
+        if let deletedAt = remote.deletedAt {
+            if let local, local.lastChange <= deletedAt {
+                context.delete(local)
+                try context.save()
+            }
+            return
+        }
+        let group: RepoGroup
+        if let local {
+            local.syncID = remote.id
+            guard remote.updatedAt > local.lastChange else {
+                try context.save()
+                return
+            }
+            if (try? validatedGroupName(remote.name, excluding: local)) != nil {
+                local.name = remote.name
+            }
+            group = local
+        } else {
+            guard let name = try? validatedGroupName(remote.name, excluding: nil) else {
+                return
+            }
+            group = RepoGroup(name: name, createdAt: remote.updatedAt)
+            context.insert(group)
+            group.syncID = remote.id
+        }
+        let wanted = Set(remote.members)
+        var found: Set<String> = []
+        group.repositories = try repositories().filter { repository in
+            guard let id = identity(repository), wanted.contains(id) else {
+                return false
+            }
+            found.insert(id)
+            return true
+        }
+        group.remoteOnlyMembers = wanted.subtracting(found).sorted()
+        group.modifiedAt = remote.updatedAt
+        try context.save()
+    }
+
+    /// Records the server's ID for `group`, after it was pushed.
+    func adoptSyncID(_ id: UUID, for group: RepoGroup) throws {
+        group.syncID = id
+        try context.save()
+    }
+
+    /// Remembers the remote identities of the repositories at `paths` in
+    /// their groups before they stop being tracked on this Mac (a scan folder
+    /// was removed), so a later sync doesn't remove them on other Macs.
+    func preserveMemberships(of paths: Set<String>, identity: (TrackedRepository) -> String?) throws {
+        for group in try groups() {
+            let leaving = group.repositories.filter { paths.contains($0.path) }.compactMap(identity)
+            if !leaving.isEmpty {
+                group.remoteOnlyMembers = Array(Set(group.remoteOnlyMembers).union(leaving)).sorted()
+            }
+        }
         try context.save()
     }
 

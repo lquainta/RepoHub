@@ -70,6 +70,7 @@ erDiagram
         timestamptz created_at
         timestamptz updated_at
         timestamptz deleted_at "nullable"
+        timestamptz synced_at "server write time"
     }
     repo_group_members {
         uuid group_id PK, FK
@@ -170,6 +171,7 @@ User-defined groups (such as "School" or "Work") in a many-to-many relationship 
 | `repo_groups.sort_order` | `int` | NOT NULL, default 0 |
 | `repo_groups.created_at`, `updated_at` | `timestamptz` | NOT NULL |
 | `repo_groups.deleted_at` | `timestamptz` | NULL |
+| `repo_groups.synced_at` | `timestamptz` | NOT NULL, default `now()`; index `(workspace_id, synced_at)`. Server time of the last write, for `GET /workspace?since=` |
 | `repo_group_members.group_id` | `uuid` | PK (part), FK → `repo_groups.id` **ON DELETE CASCADE** |
 | `repo_group_members.tracked_repo_id` | `uuid` | PK (part), FK → `tracked_repos.id` **ON DELETE CASCADE** |
 | `repo_group_members.created_at` | `timestamptz` | NOT NULL |
@@ -223,7 +225,10 @@ Sync deletions are **soft** (`deleted_at`) so another Mac learns about them. Row
 Sync (#80) is last-write-wins per row:
 - Clients send `updated_at` with each change. The server keeps whichever row has the later timestamp.
 - Deletions are rows with `deleted_at` set, so they win over older edits.
-- Clients pull changes with `updated_at > last_sync`.
+- Clients pull groups with `synced_at > since`. `synced_at` is set by the **server** on every write, while `updated_at` is the **client's** clock, which decides conflicts but can't be compared across Macs. `since` is the `serverTime` of the previous pull.
+- Repositories are identified by their normalized remote (`github.com/owner/repo`) in `tracked_repos.remote_url`, because paths differ between Macs. Group members are sent as these identities, and the server creates `tracked_repos` rows as needed.
+- A group created on two Macs with the same name (ignoring case) is one group: the second `PUT` is applied to the existing row, and the Mac adopts its ID. Recreating a deleted group's name revives its row.
+- The app keeps members that aren't cloned on that Mac (`remoteOnlyMembers`), so editing a group on one Mac doesn't remove repositories that only another Mac has.
 
 ## Conventions
 
