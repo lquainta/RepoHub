@@ -28,6 +28,22 @@ enum AppPreferences {
     /// Terminal.app.
     static let defaultTerminalBundleID = "com.apple.Terminal"
 
+    /// The production backend.
+    static let defaultBackendURL = "https://repohub-backend.fly.dev"
+    /// Overrides the backend, for development against `make run-backend` or for UI tests.
+    static let backendURLEnvironmentKey = "REPOHUB_BACKEND_URL"
+
+    /// The backend the app signs in to, from `REPOHUB_BACKEND_URL` or the production default.
+    static func backendURL(_ environment: [String: String] = ProcessInfo.processInfo.environment) -> URL {
+        if let override = environment[backendURLEnvironmentKey].flatMap(URL.init(string:)) {
+            return override
+        }
+        guard let url = URL(string: defaultBackendURL) else {
+            preconditionFailure("Invalid default backend URL: \(defaultBackendURL)")
+        }
+        return url
+    }
+
     static func editorBundleID(_ defaults: UserDefaults = .standard) -> String {
         defaults.string(forKey: editorBundleIDKey) ?? defaultEditorBundleID
     }

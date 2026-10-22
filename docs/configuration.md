@@ -64,5 +64,7 @@ In the same PR:
 ## macOS app
 
 - The app ships **no secrets**. GitHub sign-in uses the OAuth device flow (#75), which doesn't need a client secret on the device.
-- User tokens are stored only in the **Keychain**, never in `UserDefaults`, files, or logs.
-- Non-secret build settings (like the backend base URL) come from build configuration, not hard-coded literals.
+- The GitHub token never reaches the app: the backend completes the device flow and keeps it. The app gets a session (a 15-minute access token and a single-use refresh token).
+- The refresh token is stored only in the **Keychain** (one generic password item, service `com.lquainta.RepoHub`, readable only while the Mac is unlocked), never in `UserDefaults`, files, or logs. Access tokens stay in memory. Signing out revokes the session on the server and deletes the item.
+- The backend defaults to production (`https://repohub-backend.fly.dev`). Set `REPOHUB_BACKEND_URL` in the scheme's environment to use another one, for example `http://localhost:8080` with `make run-backend`.
+- UI tests (`REPOHUB_UI_TEST_IN_MEMORY_STORE=1`) keep credentials in memory and never touch the Keychain.
