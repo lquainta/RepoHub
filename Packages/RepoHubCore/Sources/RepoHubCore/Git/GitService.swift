@@ -23,6 +23,9 @@ public protocol GitServicing: Sendable {
         force: Bool,
         deleteRemote: Bool
     ) async throws -> [BranchDeletionResult]
+    /// Committer dates of every commit on any local or remote-tracking branch since `date`,
+    /// newest first, for the activity history (#81).
+    func commitDates(of repository: URL, since date: Date) async throws -> [Date]
 }
 
 extension GitServicing {
@@ -97,6 +100,23 @@ public struct GitService: GitServicing {
         details.recentCommits = try CommitSummaryParser.parseList(log)
         details.status.lastCommit = details.recentCommits.first
         return details
+    }
+
+    /// Runs `git log --all --since=<date> --format=%ct`. A repository with no
+    /// commits has none.
+    ///
+    /// - Throws: ``GitError`` if git fails or prints something other than timestamps.
+    public func commitDates(of repository: URL, since date: Date) async throws -> [Date] {
+        let output = try await runner.run(
+            ["--no-optional-locks", "log", "--all", "--since=@\(Int(date.timeIntervalSince1970))", "--format=%ct"],
+            in: repository
+        )
+        return try output.split(whereSeparator: \.isNewline).map { line in
+            guard let seconds = TimeInterval(line.trimmingCharacters(in: .whitespaces)) else {
+                throw GitError.unexpectedOutput(String(line))
+            }
+            return Date(timeIntervalSince1970: seconds)
+        }
     }
 
     /// Runs `git fetch --all --prune`.

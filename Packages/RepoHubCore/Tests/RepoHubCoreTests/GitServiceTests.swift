@@ -42,6 +42,21 @@ struct GitServiceTests {
         #expect(runner.invokedSubcommands == ["status", "log"])
     }
 
+    @Test("Commit dates come from git log --all since the given time")
+    func commitDates() async throws {
+        let runner = FakeGitRunner(["log": .success("1800000100\n1800000000\n")])
+        let since = Date(timeIntervalSince1970: 1_799_000_000)
+
+        let dates = try await GitService(runner: runner).commitDates(of: repo, since: since)
+
+        #expect(dates == [Date(timeIntervalSince1970: 1_800_000_100), Date(timeIntervalSince1970: 1_800_000_000)])
+        #expect(runner.invokedSubcommands == ["log"])
+        let malformed = FakeGitRunner(["log": .success("yesterday\n")])
+        await #expect(throws: GitError.unexpectedOutput("yesterday")) {
+            try await GitService(runner: malformed).commitDates(of: repo, since: since)
+        }
+    }
+
     @Test("Skips git log for a repository with no commits")
     func unbornSkipsLog() async throws {
         let runner = FakeGitRunner(["status": .success(try Fixture.gitOutput("unborn"))])

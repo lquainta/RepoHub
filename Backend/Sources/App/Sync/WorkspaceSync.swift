@@ -139,8 +139,8 @@ struct WorkspaceSync: Sendable {
         }
     }
 
-    /// The workspace's repository with this remote identity, created if needed.
-    private func trackedRepository(
+    /// The workspace's repository with this remote identity, created (or restored) if needed.
+    func trackedRepository(
         _ identity: String,
         workspaceID: UUID,
         on database: any Database
