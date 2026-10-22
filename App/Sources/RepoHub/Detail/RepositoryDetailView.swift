@@ -12,7 +12,7 @@ struct RepositoryDetailView: View {
     var body: some View {
         switch model.state {
         case .empty:
-            ContentUnavailableView(
+            EmptyStateView(
                 "No Repository Selected",
                 systemImage: "sidebar.right",
                 description: Text("Select a repository to see its changes, branches, and history.")
@@ -20,7 +20,7 @@ struct RepositoryDetailView: View {
         case .loading:
             ProgressView("Loading…")
         case .failed(let message):
-            ContentUnavailableView(
+            EmptyStateView(
                 "Couldn't Read Repository",
                 systemImage: "exclamationmark.triangle",
                 description: Text(message)
@@ -43,14 +43,15 @@ private struct DetailList: View {
             Section {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(name).font(.title2.bold())
-                    Text(path).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
+                    Text(path).font(.caption).foregroundStyle(.secondaryText).textSelection(.enabled)
                     HStack(spacing: 12) {
                         Label(StatusText.branch(details.status.head), systemImage: "arrow.triangle.branch")
-                        Text(StatusText.sync(details.status)).foregroundStyle(.secondary)
+                        Text(StatusText.sync(details.status)).foregroundStyle(.secondaryText)
                     }
                     .padding(.top, 2)
                 }
                 .accessibilityElement(children: .combine)
+                .accessibilityAddTraits(.isHeader)
             }
 
             if let gitHub, gitHub.error == nil {
@@ -62,7 +63,7 @@ private struct DetailList: View {
                 let local = details.branches.filter { !$0.isRemote }
                 let remote = details.branches.filter(\.isRemote)
                 if local.isEmpty {
-                    Text("No branches yet").foregroundStyle(.secondary)
+                    Text("No branches yet").foregroundStyle(.secondaryText)
                 }
                 ForEach(local, id: \.name) { BranchRow(branch: $0) }
                 if !remote.isEmpty {
@@ -74,21 +75,21 @@ private struct DetailList: View {
 
             Section("Recent Commits") {
                 if details.recentCommits.isEmpty {
-                    Text("No commits yet").foregroundStyle(.secondary)
+                    Text("No commits yet").foregroundStyle(.secondaryText)
                 }
                 ForEach(details.recentCommits, id: \.hash) { CommitRow(commit: $0) }
             }
 
             Section("Remotes") {
                 if details.remotes.isEmpty {
-                    Text("No remotes").foregroundStyle(.secondary)
+                    Text("No remotes").foregroundStyle(.secondaryText)
                 }
                 ForEach(details.remotes, id: \.name) { remote in
                     LabeledContent(remote.name) {
                         VStack(alignment: .trailing) {
                             Text(remote.fetchURL).textSelection(.enabled)
                             if let push = remote.pushURL {
-                                Text("Push: \(push)").font(.caption).foregroundStyle(.secondary)
+                                Text("Push: \(push)").font(.caption).foregroundStyle(.secondaryText)
                             }
                         }
                     }
@@ -97,18 +98,21 @@ private struct DetailList: View {
 
             Section("Stashes") {
                 if details.stashes.isEmpty {
-                    Text("No stashes").foregroundStyle(.secondary)
+                    Text("No stashes").foregroundStyle(.secondaryText)
                 }
                 ForEach(details.stashes, id: \.index) { stash in
                     LabeledContent {
-                        Text(stash.date, format: .relative(presentation: .named)).foregroundStyle(.secondary)
+                        Text(stash.date, format: .relative(presentation: .named)).foregroundStyle(.secondaryText)
                     } label: {
                         Text(stash.message)
-                        Text(verbatim: "stash@{\(stash.index)}").font(.caption.monospaced()).foregroundStyle(.secondary)
+                        Text(verbatim: "stash@{\(stash.index)}").font(.caption.monospaced()).foregroundStyle(
+                            .secondaryText
+                        )
                     }
                 }
             }
         }
+        .accessibilityLabel(Text("Details of \(name)"))
         .accessibilityIdentifier("repositoryDetail")
     }
 }
@@ -142,16 +146,16 @@ private struct FileRow: View {
     var body: some View {
         HStack {
             Image(systemName: StatusText.symbol(for: file.kind))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.secondaryText)
                 .frame(width: 16)
             VStack(alignment: .leading, spacing: 1) {
                 Text(file.path).lineLimit(1).truncationMode(.middle)
                 if let original = file.originalPath {
-                    Text("from \(original)").font(.caption).foregroundStyle(.secondary)
+                    Text("from \(original)").font(.caption).foregroundStyle(.secondaryText)
                 }
             }
             Spacer()
-            Text(StatusText.description(of: file.kind)).font(.caption).foregroundStyle(.secondary)
+            Text(StatusText.description(of: file.kind)).font(.caption).foregroundStyle(.secondaryText)
         }
         .accessibilityElement(children: .combine)
     }
@@ -162,7 +166,7 @@ private struct BranchRow: View {
 
     var body: some View {
         LabeledContent {
-            Text(branch.lastCommitDate, format: .relative(presentation: .named)).foregroundStyle(.secondary)
+            Text(branch.lastCommitDate, format: .relative(presentation: .named)).foregroundStyle(.secondaryText)
         } label: {
             HStack(spacing: 6) {
                 Text(branch.name).fontWeight(branch.isCurrent ? .semibold : .regular)
@@ -171,11 +175,11 @@ private struct BranchRow: View {
                         .font(.caption2.bold())
                         .padding(.horizontal, 5)
                         .padding(.vertical, 1)
-                        .background(.tint.opacity(0.2), in: Capsule())
+                        .overlay(Capsule().strokeBorder(.secondaryText))
                 }
             }
             if let tracking = StatusText.tracking(of: branch) {
-                Text(tracking).font(.caption).foregroundStyle(.secondary)
+                Text(tracking).font(.caption).foregroundStyle(.secondaryText)
             }
         }
         .accessibilityElement(children: .combine)
@@ -187,12 +191,12 @@ private struct CommitRow: View {
 
     var body: some View {
         LabeledContent {
-            Text(commit.date, format: .relative(presentation: .named)).foregroundStyle(.secondary)
+            Text(commit.date, format: .relative(presentation: .named)).foregroundStyle(.secondaryText)
         } label: {
             Text(commit.subject).lineLimit(2)
             Text("\(String(commit.hash.prefix(7))) · \(commit.author)")
                 .font(.caption.monospaced())
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.secondaryText)
         }
         .accessibilityElement(children: .combine)
     }

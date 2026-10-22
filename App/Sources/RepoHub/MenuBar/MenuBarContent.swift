@@ -23,11 +23,11 @@ struct MenuBarContent: View {
 
             if library.repositories.isEmpty {
                 Text("Add a folder in RepoHub to see your repositories here.")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.secondaryText)
                     .frame(maxWidth: .infinity)
             } else if summary.rows.isEmpty {
                 Label("Everything is committed and up to date", systemImage: "checkmark.circle")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.secondaryText)
                     .frame(maxWidth: .infinity)
             } else {
                 ScrollView {
@@ -75,9 +75,9 @@ private struct Count: View {
 
     var body: some View {
         VStack(spacing: 2) {
-            Image(systemName: systemImage).foregroundStyle(.secondary)
+            Image(systemName: systemImage).foregroundStyle(.secondaryText)
             Text(value, format: .number).font(.title3.bold()).monospacedDigit()
-            Text(title).font(.caption).foregroundStyle(.secondary)
+            Text(title).font(.caption).foregroundStyle(.secondaryText)
         }
         .accessibilityElement(children: .combine)
     }
@@ -92,7 +92,7 @@ private struct AttentionRow: View {
         HStack {
             VStack(alignment: .leading, spacing: 1) {
                 Text(row.name).fontWeight(.medium)
-                Text(description).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                Text(description).font(.caption).foregroundStyle(.secondaryText).lineLimit(1)
             }
             Spacer()
             Menu {

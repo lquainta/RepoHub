@@ -29,7 +29,7 @@ struct AccountSettings: View {
                         Link("Open \(verificationURL.host() ?? "GitHub")", destination: verificationURL)
                         Spacer()
                         ProgressView().controlSize(.small)
-                        Text("Waiting for approval…").foregroundStyle(.secondary)
+                        Text("Waiting for approval…").foregroundStyle(.secondaryText)
                         Button("Cancel") { account.cancelSignIn() }
                     }
                 }
@@ -39,7 +39,7 @@ struct AccountSettings: View {
                         VStack(alignment: .trailing) {
                             Text(user.login).bold()
                             if let name = user.name {
-                                Text(name).foregroundStyle(.secondary)
+                                Text(name).foregroundStyle(.secondaryText)
                             }
                         }
                     }
@@ -58,12 +58,11 @@ struct AccountSettings: View {
             } footer: {
                 Text("Needs GitHub sign-in. Clicking a notification opens the pull request or CI run.")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.secondaryText)
             }
             if let message = account.errorMessage {
                 Section {
-                    Label(message, systemImage: "exclamationmark.triangle")
-                        .foregroundStyle(.red)
+                    StatusLabel(Text(message), systemImage: "exclamationmark.triangle", tint: .red)
                 }
             }
         }
@@ -87,7 +86,7 @@ private struct SyncSection: View {
                 }
             }
             if let message = sync.errorMessage {
-                Label(message, systemImage: "exclamationmark.triangle").foregroundStyle(.red)
+                StatusLabel(Text(message), systemImage: "exclamationmark.triangle", tint: .red)
             }
             Button("Sync Now") { Task { await sync.sync() } }
                 .disabled(sync.isSyncing)
@@ -98,7 +97,7 @@ private struct SyncSection: View {
                 "Groups and the stale branch setting sync to your other Macs. Repositories are matched by their remote."
             )
             .font(.caption)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(.secondaryText)
         }
     }
 }
