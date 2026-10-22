@@ -78,4 +78,14 @@ In the same PR:
 | App | `SENTRY_DSN` build setting → `SentryDSN` in Info.plist | Release builds pass the `repohub-macos` DSN (`SENTRY_DSN_APP` repository variable). Empty in development builds, so nothing is sent. |
 | App | Settings → General → **Send crash reports** | Off by default; reporting starts only after the user opts in, at the next launch. `REPOHUB_FORCE_CRASH=1` crashes at launch to check it. |
 
-DSNs aren't secrets (Sentry designs them to ship in apps), but neither project collects personal data: `sendDefaultPii` is off and breadcrumbs, which could contain paths, are dropped. One-time setup: `scripts/setup-sentry.sh`.
+DSNs aren't secrets (Sentry designs them to ship in apps), but neither project collects personal data: `sendDefaultPii` is off and breadcrumbs, which could contain paths, are dropped. One-time setup: `scripts/setup-monitoring.sh <alert-email>`.
+
+## Alerts
+
+| What | How | Throttle |
+| --- | --- | --- |
+| Backend unhandled error or 5xx | `EmailAlerter` emails `ALERT_EMAIL_TO` through Resend (`EMAIL_API_KEY`), with the error, request, and `request_id` | One email per error (type, method, path) per 15 minutes, at most 10 an hour, tracked in Redis (sent anyway if Redis is down) |
+| App crash | Sentry alert rules on `repohub-macos` email new or regressed issues, and spikes (10 an hour) | Sentry, at most every 30 minutes per issue |
+| Backend down | UptimeRobot checks `/ready` every 5 minutes and emails when it doesn't report `"ready"` (database or Redis down, or no response) | UptimeRobot |
+
+Resend has no verified domain, so it can only email the account owner, which is the maintainer.
