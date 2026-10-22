@@ -11,6 +11,7 @@ protocol DeviceStore: Sendable {
     /// Signs the device out.
     func revoke(id: UUID, now: Date) async throws
     func devices(userID: UUID) async throws -> [Device]
+    func find(id: UUID) async throws -> Device?
 }
 
 struct FluentDeviceStore: DeviceStore {
@@ -43,5 +44,9 @@ struct FluentDeviceStore: DeviceStore {
 
     func devices(userID: UUID) async throws -> [Device] {
         try await Device.query(on: database).filter(\.$user.$id == userID).sort(\.$createdAt).all()
+    }
+
+    func find(id: UUID) async throws -> Device? {
+        try await Device.find(id, on: database)
     }
 }

@@ -13,6 +13,9 @@ protocol CacheStore: Sendable {
     /// Adds `member` to the set at `key` and (re)sets the set's expiry.
     func addToSet(_ key: String, member: String, expiresIn seconds: Int) async throws
     func members(ofSet key: String) async throws -> [String]
+    /// Atomically adds 1 to the counter at `key` (starting at 0) and returns
+    /// the new value. A new counter expires after `seconds`.
+    func increment(_ key: String, expiresIn seconds: Int) async throws -> Int
 }
 
 /// A cache in Redis. Values are stored as JSON.
@@ -42,6 +45,14 @@ struct RedisCacheStore: CacheStore {
 
     func members(ofSet key: String) async throws -> [String] {
         try await redis.smembers(of: RedisKey(key), as: String.self).get().compactMap { $0 }
+    }
+
+    func increment(_ key: String, expiresIn seconds: Int) async throws -> Int {
+        let count = try await redis.increment(RedisKey(key)).get()
+        if count == 1 {
+            _ = try await redis.expire(RedisKey(key), after: .seconds(Int64(max(1, seconds)))).get()
+        }
+        return count
     }
 }
 
@@ -90,5 +101,21 @@ actor InMemoryCacheStore: CacheStore {
             return []
         }
         return set.members.sorted()
+    }
+
+    private struct Counter {
+        var count: Int
+        var expiresAt: Date
+    }
+
+    private var counters: [String: Counter] = [:]
+
+    func increment(_ key: String, expiresIn seconds: Int) async throws -> Int {
+        var counter =
+            counters[key].flatMap { $0.expiresAt > now() ? $0 : nil }
+            ?? Counter(count: 0, expiresAt: now().addingTimeInterval(Double(seconds)))
+        counter.count += 1
+        counters[key] = counter
+        return counter.count
     }
 }

@@ -6,6 +6,7 @@ func configure(_ app: Application, reader: EnvironmentReader = EnvironmentReader
     app.config = try AppConfig(reader: reader, environment: app.environment)
     app.configureDatabase(app.config.database)
     try app.configureCache(redisURL: app.config.redisURL)
+    await app.configureSecurity(app.config.security)
     app.asyncCommands.use(SeedCommand(), as: "seed")
     try routes(app)
 }

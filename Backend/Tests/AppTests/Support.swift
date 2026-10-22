@@ -69,3 +69,39 @@ func withMigratedApp(_ body: (Application) async throws -> Void) async throws {
         try await app.autoRevert()
     }
 }
+
+extension Application {
+    /// Sends a request through the whole app (middleware included) and returns the response.
+    func send(
+        _ method: HTTPMethod,
+        _ path: String,
+        json: String? = nil,
+        headers: HTTPHeaders = [:]
+    ) async throws -> TestingHTTPResponse {
+        var headers = headers
+        if json != nil {
+            headers.contentType = .json
+        }
+        return try await testing().sendRequest(
+            method,
+            path,
+            headers: headers,
+            body: json.map { ByteBuffer(string: $0) }
+        )
+    }
+
+    /// Sends a GitHub webhook delivery, signed with `secret` unless `signature` overrides it.
+    func sendWebhook(
+        _ json: String,
+        event: String = "check_run",
+        delivery: String = UUID().uuidString,
+        secret: String? = nil,
+        signature: String? = nil
+    ) async throws -> TestingHTTPResponse {
+        var headers: HTTPHeaders = ["X-GitHub-Event": event, "X-GitHub-Delivery": delivery]
+        if let header = signature ?? secret.map({ WebhookSignature.sign(Data(json.utf8), secret: $0) }) {
+            headers.replaceOrAdd(name: "X-Hub-Signature-256", value: header)
+        }
+        return try await send(.POST, "webhooks/github", json: json, headers: headers)
+    }
+}
