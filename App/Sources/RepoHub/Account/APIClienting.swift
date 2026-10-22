@@ -1,5 +1,6 @@
 import Foundation
 import RepoHubAPIClient
+import RepoHubCore
 
 /// A GitHub user, as the backend describes them.
 struct UserProfile: Equatable, Sendable, Codable {
@@ -38,6 +39,59 @@ enum DeviceSignInPoll: Equatable, Sendable {
     case signedIn(Session)
 }
 
+/// A repository to ask the backend about, with the local branch whose checks matter.
+struct GitHubStatusRequest: Equatable, Hashable, Sendable {
+    var repository: GitHubRepository
+    /// `nil` for a detached HEAD.
+    var branch: String?
+}
+
+/// The combined result of a commit's check runs.
+enum CheckState: String, Sendable {
+    case success, failure, pending
+}
+
+/// Pull requests and CI for one GitHub repository.
+struct GitHubRepositoryStatus: Equatable, Sendable {
+    struct PullRequest: Equatable, Sendable, Identifiable {
+        var number: Int
+        var title: String
+        var url: URL
+        var author: String
+        var isDraft: Bool
+        var headBranch: String
+        /// Whether the signed-in user is a requested reviewer.
+        var reviewRequested: Bool
+
+        var id: Int { number }
+    }
+
+    struct Checks: Equatable, Sendable {
+        var state: CheckState
+        var total: Int
+        var failed: Int
+        var pending: Int
+        /// The failing run, or the most recent one.
+        var url: URL
+    }
+
+    var repository: GitHubRepository
+    /// Open pull requests, newest first.
+    var pullRequests: [PullRequest] = []
+    /// Checks on the requested branch, if it has any.
+    var checks: Checks?
+    /// Why GitHub data isn't available (`notFound`, `unauthorized`, `rateLimited`, `unavailable`).
+    var error: String?
+
+    /// Pull requests waiting for the user's review.
+    var reviewRequests: [PullRequest] { pullRequests.filter(\.reviewRequested) }
+
+    /// The open pull request for `branch`, if there is one.
+    func pullRequest(for branch: String?) -> PullRequest? {
+        branch.flatMap { branch in pullRequests.first { $0.headBranch == branch } }
+    }
+}
+
 /// Why a backend call failed, in terms the app can act on.
 enum APIError: Error, Equatable, LocalizedError {
     /// The session is invalid or expired, or was revoked.
@@ -73,6 +127,9 @@ protocol APIClienting: Sendable {
     func refreshSession(refreshToken: String) async throws -> Session
     func signOut(accessToken: String) async throws
     func currentUser(accessToken: String) async throws -> UserProfile
+    /// Pull requests and checks for up to 100 repositories, in request order.
+    func repositoryStatuses(_ requests: [GitHubStatusRequest], accessToken: String) async throws
+        -> [GitHubRepositoryStatus]
 }
 
 /// ``APIClienting`` backed by the client generated from the OpenAPI spec.
@@ -167,6 +224,29 @@ struct RepoHubAPI: APIClienting {
         }
     }
 
+    func repositoryStatuses(
+        _ requests: [GitHubStatusRequest],
+        accessToken: String
+    ) async throws -> [GitHubRepositoryStatus] {
+        let body = Components.Schemas.RepositoryStatusRequest(
+            repositories: requests.map {
+                .init(owner: $0.repository.owner, name: $0.repository.name, branch: $0.branch)
+            }
+        )
+        switch try await client(accessToken).getRepositoryStatuses(body: .json(body)) {
+        case .ok(let ok):
+            return try ok.body.json.repositories.map(GitHubRepositoryStatus.init)
+        case .badRequest(let response):
+            throw APIError.unavailable(Self.reason(try? response.body.json))
+        case .unauthorized:
+            throw APIError.unauthorized
+        case .tooManyRequests:
+            throw APIError.rateLimited
+        case .undocumented(let statusCode, _):
+            throw APIError.unexpectedResponse(statusCode: statusCode)
+        }
+    }
+
     private static func reason(_ error: Components.Schemas._Error?) -> String {
         error?.reason ?? String(localized: "no details")
     }
@@ -190,6 +270,39 @@ extension Session {
             refreshToken: session.refreshToken,
             expiresIn: .seconds(session.expiresIn),
             user: UserProfile(session.user)
+        )
+    }
+}
+
+extension GitHubRepositoryStatus {
+    init(_ status: Components.Schemas.RepositoryGitHubStatus) {
+        self.init(
+            repository: GitHubRepository(owner: status.owner, name: status.name),
+            pullRequests: status.pullRequests.compactMap { pull in
+                URL(string: pull.url).map { url in
+                    PullRequest(
+                        number: pull.number,
+                        title: pull.title,
+                        url: url,
+                        author: pull.author,
+                        isDraft: pull.isDraft,
+                        headBranch: pull.headBranch,
+                        reviewRequested: pull.reviewRequested
+                    )
+                }
+            },
+            checks: status.checks.flatMap { checks in
+                URL(string: checks.url).map { url in
+                    Checks(
+                        state: CheckState(rawValue: checks.state.rawValue) ?? .pending,
+                        total: checks.total,
+                        failed: checks.failed,
+                        pending: checks.pending,
+                        url: url
+                    )
+                }
+            },
+            error: status.error?.rawValue
         )
     }
 }

@@ -16,8 +16,13 @@ struct LibraryView: View {
                 .navigationSplitViewColumnWidth(min: 420, ideal: 640)
                 .searchable(text: $model.filter.searchText, placement: .toolbar, prompt: "Name, path, or branch")
         } detail: {
-            RepositoryDetailView(model: model.detail, name: model.selectedRepository?.name)
-                .navigationSplitViewColumnWidth(min: 280, ideal: 360)
+            RepositoryDetailView(
+                model: model.detail,
+                name: model.selectedRepository?.name,
+                gitHub: model.selectedRow?.gitHub,
+                branch: model.selectedRow?.currentBranch
+            )
+            .navigationSplitViewColumnWidth(min: 280, ideal: 360)
         }
         .toolbar {
             ToolbarItem {

@@ -23,6 +23,8 @@ final class LibraryViewModel {
     let actions: RepositoryActions
     /// Watches for file changes and refreshes affected repositories, if enabled.
     let autoRefresh: AutoRefreshController?
+    /// Pull requests and CI from GitHub, if the app can sign in.
+    let gitHub: GitHubStatusModel?
     /// Path of the selected repository, if any.
     private(set) var selectedPath: String?
     /// User-defined groups, oldest first.
@@ -45,7 +47,8 @@ final class LibraryViewModel {
         statuses: StatusMonitor? = nil,
         detail: RepositoryDetailModel? = nil,
         actions: RepositoryActions? = nil,
-        autoRefresh: AutoRefreshController? = nil
+        autoRefresh: AutoRefreshController? = nil,
+        gitHub: GitHubStatusModel? = nil
     ) {
         self.store = store
         self.injectedScanner = scanner
@@ -53,6 +56,7 @@ final class LibraryViewModel {
         self.detail = detail ?? RepositoryDetailModel()
         self.actions = actions ?? RepositoryActions()
         self.autoRefresh = autoRefresh
+        self.gitHub = gitHub
         self.actions.onRepositoriesChanged = { [weak self] paths in
             await self?.repositoriesChanged(paths)
         }
@@ -81,6 +85,28 @@ final class LibraryViewModel {
             await addFolders(launchFolders)
         }
         await refreshStatuses()
+        gitHub?.startPolling { [weak self] in self?.gitHubRequests ?? [] }
+    }
+
+    /// Repositories with a GitHub remote, and the branch each has checked out.
+    var gitHubRequests: [GitHubStatusRequest] {
+        repositories.compactMap { repository in
+            guard let gitHubRepository = statuses.facts[repository.path]?.gitHub else {
+                return nil
+            }
+            let row = DashboardRow(
+                id: repository.path,
+                name: repository.name,
+                path: repository.path,
+                state: statuses.state(for: repository.path)
+            )
+            return GitHubStatusRequest(repository: gitHubRepository, branch: row.currentBranch)
+        }
+    }
+
+    /// Asks GitHub for new pull request and CI status now, for example right after signing in.
+    func refreshGitHub() async {
+        await gitHub?.refresh(gitHubRequests)
     }
 
     /// Fetches every tracked repository.
@@ -94,6 +120,11 @@ final class LibraryViewModel {
         if let selectedPath, paths.contains(selectedPath) {
             await detail.reload()
         }
+    }
+
+    /// The selected repository's dashboard row, if it's still tracked.
+    var selectedRow: DashboardRow? {
+        rows.first { $0.id == selectedPath }
     }
 
     /// The selected repository, if it's still tracked.
@@ -110,13 +141,17 @@ final class LibraryViewModel {
     /// Dashboard rows: every repository with its latest known status.
     var rows: [DashboardRow] {
         repositories.map { repository in
-            DashboardRow(
+            var row = DashboardRow(
                 id: repository.path,
                 name: repository.name,
                 path: repository.path,
                 state: statuses.state(for: repository.path),
                 facts: statuses.facts[repository.path]
             )
+            if let gitHubRepository = row.facts?.gitHub {
+                row.gitHub = gitHub?.status(for: gitHubRepository, branch: row.currentBranch)
+            }
+            return row
         }
     }
 

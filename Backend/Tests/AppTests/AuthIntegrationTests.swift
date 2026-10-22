@@ -7,7 +7,7 @@ import VaporTesting
 @testable import App
 
 /// Plays GitHub's side of the device flow.
-private actor FakeGitHubOAuth: GitHubOAuth {
+actor FakeGitHubOAuth: GitHubOAuth {
     private var results: [DeviceTokenResult]
     let profile = GitHubProfile(id: 583_231, login: "octocat", name: "The Octocat")
 
