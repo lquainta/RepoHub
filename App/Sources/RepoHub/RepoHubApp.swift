@@ -27,11 +27,18 @@ struct RepoHubApp: App {
                 ? InMemoryCredentialStore() : KeychainCredentialStore()
         )
         _account = State(initialValue: account)
+        let gitHub = GitHubStatusModel(account: account, api: api)
+        let notifier = AttentionNotifier(
+            notifier: UITestSupport.usesInMemoryStore(environment) ? SilentNotifier() : SystemNotifier()
+        )
+        gitHub.onUpdate = { _, new in
+            Task { await notifier.update(new) }
+        }
         _library = State(
             initialValue: LibraryViewModel(
                 store: LibraryStore(container: container),
                 autoRefresh: AutoRefreshController(),
-                gitHub: GitHubStatusModel(account: account, api: api)
+                gitHub: gitHub
             )
         )
         launchFolders = Self.launchFolders(environment: environment)

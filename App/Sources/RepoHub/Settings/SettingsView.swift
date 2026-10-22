@@ -19,7 +19,7 @@ struct SettingsView: View {
                 AppSettings(settings: settings)
             }
             Tab("Account", systemImage: "person.crop.circle") {
-                AccountSettings(account: account)
+                AccountSettings(account: account, settings: settings)
             }
         }
         .frame(width: 520, height: 400)
