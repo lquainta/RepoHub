@@ -23,9 +23,8 @@ struct GitHubBadges: View {
                 .help(pullRequestsHelp(reviews: reviews))
                 .accessibilityLabel(Text(pullRequestsHelp(reviews: reviews)))
                 if reviews > 0 {
-                    Label("\(reviews)", systemImage: "eye")
+                    StatusLabel("\(reviews)", systemImage: "eye", tint: .orange)
                         .labelStyle(.titleAndIcon)
-                        .foregroundStyle(.orange)
                         .help("\(reviews) waiting for your review")
                         .accessibilityLabel(Text("\(reviews) waiting for your review"))
                 }
@@ -101,13 +100,13 @@ struct GitHubSection: View {
                 }
             }
             if status.pullRequests.isEmpty {
-                Text("No open pull requests").foregroundStyle(.secondary)
+                Text("No open pull requests").foregroundStyle(.secondaryText)
             }
             ForEach(status.pullRequests) { pull in
                 Link(destination: pull.url) {
                     VStack(alignment: .leading, spacing: 2) {
                         HStack(spacing: 4) {
-                            Text("#\(pull.number)").monospacedDigit().foregroundStyle(.secondary)
+                            Text("#\(pull.number)").monospacedDigit().foregroundStyle(.secondaryText)
                             Text(pull.title).lineLimit(1)
                         }
                         HStack(spacing: 6) {
@@ -117,14 +116,14 @@ struct GitHubSection: View {
                                 Text("Draft")
                             }
                             if pull.reviewRequested {
-                                Label("Review requested", systemImage: "eye").foregroundStyle(.orange)
+                                StatusLabel("Review requested", systemImage: "eye", tint: .orange)
                             }
                             if pull.headBranch == branch {
                                 Text("Current branch")
                             }
                         }
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.secondaryText)
                     }
                 }
                 .buttonStyle(.plain)
