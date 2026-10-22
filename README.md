@@ -18,6 +18,10 @@ A native macOS dashboard for all your local git repositories: status, stale bran
 | `Backend/` | Vapor REST API (PostgreSQL, Redis) |
 | `docs/` | Architecture diagrams and decision records |
 
+## Environments
+
+The backend has separate **development**, **testing**, and **production** databases (`repohub_dev`, `repohub_test`, and managed Postgres on Fly.io), chosen by Vapor's environment. See [docs/configuration.md](docs/configuration.md#environments).
+
 ## License
 
 [MIT](LICENSE)
