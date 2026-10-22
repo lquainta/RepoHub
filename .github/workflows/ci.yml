@@ -92,6 +92,15 @@ jobs:
         run: make test-app RESULT_BUNDLE=build/app-unit.xcresult DERIVED_DATA=build/DerivedData
       - name: Every UI string has a Spanish translation
         run: make check-localizations
+      - name: Upload new or changed snapshots
+        # A missing reference image is recorded here and the test fails; commit
+        # the artifact's images under App/Tests/RepoHubTests/Snapshots (#63).
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: app-snapshots
+          path: App/Tests/RepoHubTests/Snapshots/__Snapshots__/
+          if-no-files-found: ignore
       - name: Export coverage
         run: scripts/app-coverage.sh build/DerivedData coverage/app.lcov
       - name: Coverage summary
