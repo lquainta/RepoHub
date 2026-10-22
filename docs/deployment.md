@@ -70,3 +70,7 @@ The `Docker image` job in [`ci.yml`](../.github/workflows/ci.yml) builds the ima
 - `/health` returns `ok` with the right commit
 - the process isn't root
 - Docker reports the container `healthy`
+
+## Backups
+
+The production database is backed up every night, encrypted, to Fly's Tigris object storage with 14-day retention. Fly's daily volume snapshots are a second layer. Every Sunday the latest backup is restored into a scratch database to prove it works. Restoring, the drill log, and one-time setup (`scripts/setup-backups.sh`) are in the [restore runbook](runbooks/restore.md).
