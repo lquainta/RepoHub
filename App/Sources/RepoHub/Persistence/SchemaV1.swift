@@ -3,7 +3,7 @@ import SwiftData
 
 /// Version 1 of RepoHub's persisted data model.
 ///
-/// Never edit a shipped schema version. The current model is ``SchemaV2``;
+/// Never edit a shipped schema version. The current model is ``SchemaV3``;
 /// the app's type aliases point there.
 enum SchemaV1: VersionedSchema {
     static var versionIdentifier: Schema.Version { Schema.Version(1, 0, 0) }

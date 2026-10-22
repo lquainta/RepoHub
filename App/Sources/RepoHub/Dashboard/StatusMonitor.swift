@@ -19,6 +19,9 @@ struct RepositoryFacts: Equatable {
     var staleBranchCount: Int
     /// The GitHub repository of `origin`, or of the first GitHub remote.
     var gitHub: GitHubRepository?
+    /// The remote identity of `origin` (or the first remote), which
+    /// identifies the repository on other Macs (#80).
+    var remoteIdentity: String?
 }
 
 /// Reads and caches the git status of tracked repositories.
@@ -128,10 +131,13 @@ final class StatusMonitor {
             return nil
         }
         let origin = remotes.first { $0.name == "origin" }.flatMap { GitHubRepository(remoteURL: $0.fetchURL) }
+        let identity = (remotes.first { $0.name == "origin" } ?? remotes.first)
+            .flatMap { RemoteIdentity.normalize($0.fetchURL) }
         return RepositoryFacts(
             remoteCount: remotes.count,
             staleBranchCount: stale.candidates.count,
-            gitHub: origin ?? remotes.lazy.compactMap { GitHubRepository(remoteURL: $0.fetchURL) }.first
+            gitHub: origin ?? remotes.lazy.compactMap { GitHubRepository(remoteURL: $0.fetchURL) }.first,
+            remoteIdentity: identity
         )
     }
 

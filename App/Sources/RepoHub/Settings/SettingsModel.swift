@@ -81,7 +81,10 @@ final class SettingsModel {
 
     /// Days without commits before a branch counts as stale; 0 turns the check off.
     var staleBranchDays: Int {
-        didSet { defaults.set(max(0, staleBranchDays), forKey: AppPreferences.staleBranchDaysKey) }
+        didSet {
+            defaults.set(max(0, staleBranchDays), forKey: AppPreferences.staleBranchDaysKey)
+            defaults.set(Date.now, forKey: AppPreferences.staleBranchDaysModifiedAtKey)
+        }
     }
 
     /// Folder names the scanner skips, sorted.

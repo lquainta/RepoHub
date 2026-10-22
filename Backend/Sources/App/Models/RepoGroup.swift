@@ -12,6 +12,8 @@ final class RepoGroup: Model, @unchecked Sendable {
     @Timestamp(key: "created_at", on: .create) var createdAt: Date?
     @Field(key: "updated_at") var updatedAt: Date
     @OptionalField(key: "deleted_at") var deletedAt: Date?
+    /// When the server last stored this group; `GET /workspace?since=` filters on it.
+    @Field(key: "synced_at") var syncedAt: Date
 
     init() {}
 
@@ -21,6 +23,7 @@ final class RepoGroup: Model, @unchecked Sendable {
         self.name = name
         self.sortOrder = sortOrder
         self.updatedAt = updatedAt
+        self.syncedAt = .now
     }
 }
 

@@ -130,6 +130,7 @@ struct FluentSyncStore: SyncStore {
             group.sortOrder = change.sortOrder
             group.updatedAt = change.updatedAt
             group.deletedAt = change.deletedAt
+            group.syncedAt = .now
             try await group.save(on: database)
 
             let groupID = try group.requireID()

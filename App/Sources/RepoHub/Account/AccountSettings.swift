@@ -5,6 +5,8 @@ import SwiftUI
 struct AccountSettings: View {
     let account: AccountModel
     @Bindable var settings: SettingsModel
+    /// Group and settings sync, if available.
+    var sync: SyncModel?
 
     var body: some View {
         Form {
@@ -44,6 +46,9 @@ struct AccountSettings: View {
                     .accessibilityIdentifier("signedInUser")
                     Button("Sign Out") { Task { await account.signOut() } }
                 }
+                if let sync {
+                    SyncSection(sync: sync)
+                }
             }
             Section {
                 Toggle("CI fails on a branch you have checked out", isOn: $settings.notifyCIFailures)
@@ -63,5 +68,37 @@ struct AccountSettings: View {
             }
         }
         .formStyle(.grouped)
+    }
+}
+
+/// Sync status: when groups and settings last synced, and Sync Now.
+private struct SyncSection: View {
+    let sync: SyncModel
+
+    var body: some View {
+        Section {
+            LabeledContent("Last synced") {
+                if sync.isSyncing {
+                    ProgressView().controlSize(.small)
+                } else if let date = sync.lastSynced {
+                    Text(date, format: .relative(presentation: .named))
+                } else {
+                    Text("Not yet")
+                }
+            }
+            if let message = sync.errorMessage {
+                Label(message, systemImage: "exclamationmark.triangle").foregroundStyle(.red)
+            }
+            Button("Sync Now") { Task { await sync.sync() } }
+                .disabled(sync.isSyncing)
+        } header: {
+            Text("Sync")
+        } footer: {
+            Text(
+                "Groups and the stale branch setting sync to your other Macs. Repositories are matched by their remote."
+            )
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        }
     }
 }
