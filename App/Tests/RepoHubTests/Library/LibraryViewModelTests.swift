@@ -49,8 +49,8 @@ struct LibraryViewModelTests {
     @Test("Adding a folder that's already tracked does nothing")
     func addDuplicateFolder() async throws {
         let model = try makeModel(["/dev": .success([url("/dev/api")])])
-        await model.addFolders([url("/dev")])
-        await model.addFolders([url("/dev")])
+        await model.addFolders([URL(fileURLWithPath: "/dev")])
+        await model.addFolders([URL(fileURLWithPath: "/dev")])
         #expect(model.folders.count == 1)
         #expect(model.repositories.count == 1)
     }
@@ -70,7 +70,7 @@ struct LibraryViewModelTests {
     @Test("Removing a folder removes its repositories")
     func removeFolder() async throws {
         let model = try makeModel(["/dev": .success([url("/dev/api")])])
-        await model.addFolders([url("/dev")])
+        await model.addFolders([URL(fileURLWithPath: "/dev")])
         let folder = try #require(model.folders.first)
 
         model.remove(folder)
@@ -204,6 +204,40 @@ struct LibraryViewModelStatusTests {
         #expect(model.rows.allSatisfy { $0.state != nil })
     }
 
+    @Test("Repositories with a GitHub remote get pull request and CI badges for their branch")
+    func gitHubBadges() async throws {
+        let git = FakeGit(["/dev/api": .success(RepoStatus(head: .detached(commit: "abc1234")))])
+        await git.setRemotes([Remote(name: "upstream", fetchURL: "/elsewhere/web.git")], for: "/dev/web")
+        let api = FakeAPI()
+        await api.setPolls([.success(.signedIn(.fixture()))])
+        await api.setGitHubStatus(.fixture("api", pulls: [.fixture(4, review: true)]))
+        let account = AccountModel(
+            api: api,
+            credentials: InMemoryCredentialStore(),
+            workspace: FakeWorkspace(),
+            sleep: { _ in }
+        )
+        account.signIn()
+        await account.waitForSignIn()
+        let model = LibraryViewModel(
+            store: LibraryStore(container: try Persistence.makeInMemoryContainer()),
+            scanner: FakeScanner(results: [
+                "/dev": .success([URL(fileURLWithPath: "/dev/api"), URL(fileURLWithPath: "/dev/web")])
+            ]),
+            statuses: StatusMonitor(git: git),
+            gitHub: GitHubStatusModel(account: account, api: api)
+        )
+        await model.addFolders([URL(fileURLWithPath: "/dev")])
+
+        await model.refreshGitHub()
+
+        // `web` has no GitHub remote, so it isn't requested and has no badge.
+        let apiRepository = GitHubRepository(owner: "owner", name: "api")
+        #expect(model.gitHubRequests == [GitHubStatusRequest(repository: apiRepository, branch: nil)])
+        #expect(model.rows.first { $0.name == "api" }?.gitHub?.reviewRequests.count == 1)
+        #expect(model.rows.first { $0.name == "web" }?.gitHub == nil)
+    }
+
     @Test("Removing a folder forgets its repositories' statuses")
     func removeForgetsStatus() async throws {
         let model = try makeModel(git: FakeGit())
@@ -303,7 +337,16 @@ struct LibraryViewModelScopeTests {
         model.filter.quickFilters = [.noRemote]
         #expect(model.visibleRows.isEmpty)
         model.filter.quickFilters = []
-        #expect(model.rows.allSatisfy { $0.facts == RepositoryFacts(remoteCount: 1, staleBranchCount: 0) })
+        #expect(
+            model.rows.allSatisfy { row in
+                row.facts
+                    == RepositoryFacts(
+                        remoteCount: 1,
+                        staleBranchCount: 0,
+                        gitHub: GitHubRepository(owner: "owner", name: row.name)
+                    )
+            }
+        )
     }
 }
 

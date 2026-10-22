@@ -5,6 +5,10 @@ private struct CacheStoreKey: StorageKey {
     typealias Value = any CacheStore
 }
 
+private struct GitHubAPIKey: StorageKey {
+    typealias Value = any GitHubAPI
+}
+
 extension Application {
     /// The cache, configured by ``configureCache(redisURL:)``.
     var cacheStore: any CacheStore {
@@ -28,8 +32,14 @@ extension Application {
         }
     }
 
+    /// The GitHub REST API: `api.github.com` unless a test replaces it.
+    var githubAPI: any GitHubAPI {
+        get { storage[GitHubAPIKey.self] ?? VaporGitHubAPI(client: client) }
+        set { storage[GitHubAPIKey.self] = newValue }
+    }
+
     /// The GitHub API through the cache.
     var githubCache: GitHubCache {
-        GitHubCache(store: cacheStore, api: VaporGitHubAPI(client: client), logger: contextLogger)
+        GitHubCache(store: cacheStore, api: githubAPI, logger: contextLogger)
     }
 }

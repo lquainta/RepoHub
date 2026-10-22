@@ -5,6 +5,9 @@ import SwiftUI
 struct RepositoryDetailView: View {
     let model: RepositoryDetailModel
     let name: String?
+    /// Pull requests and CI, when signed in and the repository is on GitHub.
+    var gitHub: GitHubRepositoryStatus?
+    var branch: String?
 
     var body: some View {
         switch model.state {
@@ -23,7 +26,7 @@ struct RepositoryDetailView: View {
                 description: Text(message)
             )
         case .loaded(let details):
-            DetailList(details: details, name: name ?? "", path: model.path ?? "")
+            DetailList(details: details, name: name ?? "", path: model.path ?? "", gitHub: gitHub, branch: branch)
         }
     }
 }
@@ -32,6 +35,8 @@ private struct DetailList: View {
     let details: RepositoryDetails
     let name: String
     let path: String
+    let gitHub: GitHubRepositoryStatus?
+    let branch: String?
 
     var body: some View {
         List {
@@ -48,6 +53,9 @@ private struct DetailList: View {
                 .accessibilityElement(children: .combine)
             }
 
+            if let gitHub, gitHub.error == nil {
+                GitHubSection(status: gitHub, branch: branch)
+            }
             ChangesSection(files: details.files)
 
             Section("Branches") {
