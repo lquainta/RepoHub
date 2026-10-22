@@ -1,8 +1,10 @@
 import SwiftUI
 
-/// The Account tab of the Settings window: GitHub sign-in and sign-out.
+/// The Account tab of the Settings window: GitHub sign-in and sign-out, and
+/// notifications about GitHub activity.
 struct AccountSettings: View {
     let account: AccountModel
+    @Bindable var settings: SettingsModel
 
     var body: some View {
         Form {
@@ -42,6 +44,16 @@ struct AccountSettings: View {
                     .accessibilityIdentifier("signedInUser")
                     Button("Sign Out") { Task { await account.signOut() } }
                 }
+            }
+            Section {
+                Toggle("CI fails on a branch you have checked out", isOn: $settings.notifyCIFailures)
+                Toggle("Someone requests your review", isOn: $settings.notifyReviewRequests)
+            } header: {
+                Text("Notify Me When")
+            } footer: {
+                Text("Needs GitHub sign-in. Clicking a notification opens the pull request or CI run.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
             if let message = account.errorMessage {
                 Section {

@@ -50,6 +50,18 @@ final class SettingsModel {
         showMenuBarExtra = AppPreferences.showMenuBarExtra(defaults)
         menuBarOnly = defaults.bool(forKey: AppPreferences.menuBarOnlyKey)
         launchAtLogin = loginItem.isEnabled
+        notifyCIFailures = AppPreferences.notifyCIFailures(defaults)
+        notifyReviewRequests = AppPreferences.notifyReviewRequests(defaults)
+    }
+
+    /// Whether failing CI on a checked-out branch posts a notification.
+    var notifyCIFailures: Bool {
+        didSet { defaults.set(notifyCIFailures, forKey: AppPreferences.notifyCIFailuresKey) }
+    }
+
+    /// Whether a new review request posts a notification.
+    var notifyReviewRequests: Bool {
+        didSet { defaults.set(notifyReviewRequests, forKey: AppPreferences.notifyReviewRequestsKey) }
     }
 
     /// Bundle identifier of the editor for "Open in Editor".

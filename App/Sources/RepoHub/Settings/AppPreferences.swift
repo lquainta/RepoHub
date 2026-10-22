@@ -23,6 +23,19 @@ enum AppPreferences {
     /// Whether RepoHub runs from the menu bar only, without a Dock icon or main window at launch.
     static let menuBarOnlyKey = "menuBarOnly"
 
+    /// Whether to notify when CI fails on a checked-out branch (on by default).
+    static let notifyCIFailuresKey = "notifyCIFailures"
+    /// Whether to notify about new review requests (on by default).
+    static let notifyReviewRequestsKey = "notifyReviewRequests"
+
+    static func notifyCIFailures(_ defaults: UserDefaults = .standard) -> Bool {
+        defaults.object(forKey: notifyCIFailuresKey) as? Bool ?? true
+    }
+
+    static func notifyReviewRequests(_ defaults: UserDefaults = .standard) -> Bool {
+        defaults.object(forKey: notifyReviewRequestsKey) as? Bool ?? true
+    }
+
     /// Visual Studio Code.
     static let defaultEditorBundleID = "com.microsoft.VSCode"
     /// Terminal.app.
