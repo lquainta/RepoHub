@@ -10,6 +10,8 @@ enum AppPreferences {
 
     /// Days without commits after which a branch counts as stale; `0` turns the check off.
     static let staleBranchDaysKey = "staleBranchDays"
+    /// When the stale branch setting was last changed, for syncing it between Macs (#80).
+    static let staleBranchDaysModifiedAtKey = "staleBranchDaysModifiedAt"
     /// Branches untouched for 90 days are suggested for cleanup.
     static let defaultStaleBranchDays = 90
 

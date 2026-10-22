@@ -25,6 +25,8 @@ final class LibraryViewModel {
     let autoRefresh: AutoRefreshController?
     /// Pull requests and CI from GitHub, if the app can sign in.
     let gitHub: GitHubStatusModel?
+    /// Syncs groups and settings with the user's other Macs, if set.
+    var sync: SyncModel?
     /// Path of the selected repository, if any.
     private(set) var selectedPath: String?
     /// User-defined groups, oldest first.
@@ -87,6 +89,13 @@ final class LibraryViewModel {
         await refreshStatuses()
         gitHub?.startPolling { [weak self] in self?.gitHubRequests ?? [] }
         gitHub?.startLiveUpdates { [weak self] in self?.gitHubRequests ?? [] }
+        // After the statuses, so repositories' remote identities are known.
+        await sync?.sync()
+    }
+
+    /// A tracked repository's remote identity, once its remotes have been read.
+    func remoteIdentity(of repository: TrackedRepository) -> String? {
+        statuses.facts[repository.path]?.remoteIdentity
     }
 
     /// Repositories with a GitHub remote, and the branch each has checked out.
@@ -204,6 +213,8 @@ final class LibraryViewModel {
     /// Stops tracking `folder` and the repositories found in it.
     func remove(_ folder: ScanFolder) {
         do {
+            let leaving = Set(folder.repositories.map(\.path))
+            try store.preserveMemberships(of: leaving, identity: remoteIdentity(of:))
             try store.removeScanFolder(folder)
         } catch {
             report(error, message: String(localized: "Couldn't remove \(folder.path)."))

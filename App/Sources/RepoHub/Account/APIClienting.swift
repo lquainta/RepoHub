@@ -92,6 +92,33 @@ struct GitHubRepositoryStatus: Equatable, Sendable {
     }
 }
 
+/// A group as Macs sync it (#80). Members are remote identities
+/// (``RemoteIdentity``), because local paths differ between Macs.
+struct SyncedGroup: Equatable, Sendable {
+    var id: UUID
+    var name: String
+    var sortOrder: Int
+    var members: [String]
+    /// When it last changed, by the clock of the Mac that changed it.
+    var updatedAt: Date
+    var deletedAt: Date?
+}
+
+/// Settings synced between Macs.
+struct SyncedSettings: Equatable, Sendable {
+    /// `nil` means the app's default.
+    var staleBranchDays: Int?
+    var updatedAt: Date
+}
+
+/// The user's synced workspace.
+struct SyncedWorkspace: Equatable, Sendable {
+    /// The server's time of the response; pass it as `since` next time.
+    var serverTime: Date
+    var settings: SyncedSettings
+    var groups: [SyncedGroup]
+}
+
 /// Why a backend call failed, in terms the app can act on.
 enum APIError: Error, Equatable, LocalizedError {
     /// The session is invalid or expired, or was revoked.
@@ -130,6 +157,15 @@ protocol APIClienting: Sendable {
     /// Pull requests and checks for up to 100 repositories, in request order.
     func repositoryStatuses(_ requests: [GitHubStatusRequest], accessToken: String) async throws
         -> [GitHubRepositoryStatus]
+    /// The synced settings and the groups changed since `since` (all if `nil`).
+    func workspace(since: Date?, accessToken: String) async throws -> SyncedWorkspace
+    /// Stores settings (last write wins); returns what's stored.
+    func updateSettings(_ settings: SyncedSettings, accessToken: String) async throws -> SyncedSettings
+    /// Creates or updates a group (last write wins); returns what's stored,
+    /// which may have another group's ID if one with the same name existed.
+    func putGroup(_ group: SyncedGroup, accessToken: String) async throws -> SyncedGroup
+    /// Deletes a group as of `deletedAt`.
+    func deleteGroup(id: UUID, deletedAt: Date, accessToken: String) async throws
     /// Repositories whose pull requests or checks just changed on GitHub,
     /// as they happen, until the server ends the stream.
     func repositoryChanges(accessToken: String) async throws -> AsyncThrowingStream<GitHubRepository, any Error>
@@ -250,6 +286,84 @@ struct RepoHubAPI: APIClienting {
         }
     }
 
+    func workspace(since: Date?, accessToken: String) async throws -> SyncedWorkspace {
+        switch try await client(accessToken).getWorkspace(query: .init(since: since)) {
+        case .ok(let ok):
+            let body = try ok.body.json
+            return SyncedWorkspace(
+                serverTime: body.serverTime,
+                settings: SyncedSettings(body.settings),
+                groups: body.groups.compactMap(SyncedGroup.init)
+            )
+        case .unauthorized:
+            throw APIError.unauthorized
+        case .tooManyRequests:
+            throw APIError.rateLimited
+        case .undocumented(let statusCode, _):
+            throw APIError.unexpectedResponse(statusCode: statusCode)
+        }
+    }
+
+    func updateSettings(_ settings: SyncedSettings, accessToken: String) async throws -> SyncedSettings {
+        let body = Components.Schemas.SyncedSettings(
+            staleBranchDays: settings.staleBranchDays,
+            updatedAt: settings.updatedAt
+        )
+        switch try await client(accessToken).updateWorkspaceSettings(body: .json(body)) {
+        case .ok(let ok):
+            return SyncedSettings(try ok.body.json)
+        case .unauthorized:
+            throw APIError.unauthorized
+        case .tooManyRequests:
+            throw APIError.rateLimited
+        case .undocumented(let statusCode, _):
+            throw APIError.unexpectedResponse(statusCode: statusCode)
+        }
+    }
+
+    func putGroup(_ group: SyncedGroup, accessToken: String) async throws -> SyncedGroup {
+        let body = Components.Schemas.SyncedGroup(
+            id: group.id.uuidString,
+            name: group.name,
+            sortOrder: group.sortOrder,
+            members: group.members,
+            updatedAt: group.updatedAt,
+            deletedAt: group.deletedAt
+        )
+        switch try await client(accessToken).putGroup(path: .init(groupID: group.id.uuidString), body: .json(body)) {
+        case .ok(let ok):
+            guard let stored = SyncedGroup(try ok.body.json) else {
+                throw APIError.unexpectedResponse(statusCode: 200)
+            }
+            return stored
+        case .badRequest(let response):
+            throw APIError.unavailable(Self.reason(try? response.body.json))
+        case .unauthorized:
+            throw APIError.unauthorized
+        case .tooManyRequests:
+            throw APIError.rateLimited
+        case .undocumented(let statusCode, _):
+            throw APIError.unexpectedResponse(statusCode: statusCode)
+        }
+    }
+
+    func deleteGroup(id: UUID, deletedAt: Date, accessToken: String) async throws {
+        let output = try await client(accessToken).deleteGroup(
+            path: .init(groupID: id.uuidString),
+            query: .init(deletedAt: deletedAt)
+        )
+        switch output {
+        case .noContent:
+            return
+        case .unauthorized:
+            throw APIError.unauthorized
+        case .tooManyRequests:
+            throw APIError.rateLimited
+        case .undocumented(let statusCode, _):
+            throw APIError.unexpectedResponse(statusCode: statusCode)
+        }
+    }
+
     func repositoryChanges(accessToken: String) async throws -> AsyncThrowingStream<GitHubRepository, any Error> {
         let changes: AsyncThrowingStream<Components.Schemas.RepositoryChanged, any Error>
         switch try await client(accessToken).streamEvents() {
@@ -334,5 +448,27 @@ extension GitHubRepositoryStatus {
             },
             error: status.error?.rawValue
         )
+    }
+}
+
+extension SyncedGroup {
+    init?(_ group: Components.Schemas.SyncedGroup) {
+        guard let id = UUID(uuidString: group.id) else {
+            return nil
+        }
+        self.init(
+            id: id,
+            name: group.name,
+            sortOrder: group.sortOrder,
+            members: group.members,
+            updatedAt: group.updatedAt,
+            deletedAt: group.deletedAt
+        )
+    }
+}
+
+extension SyncedSettings {
+    init(_ settings: Components.Schemas.SyncedSettings) {
+        self.init(staleBranchDays: settings.staleBranchDays, updatedAt: settings.updatedAt)
     }
 }

@@ -52,6 +52,8 @@ tags:
     description: The signed-in user.
   - name: GitHub
     description: Pull request and CI status for the user's repositories.
+  - name: Sync
+    description: Groups and settings synced between a user's Macs.
   - name: Webhooks
     description: Events from GitHub.
 paths:
@@ -282,6 +284,121 @@ paths:
                 description: "`repository` events whose `data` is JSON matching `RepositoryChanged`."
                 contentSchema:
                   $ref: "#/components/schemas/RepositoryChanged"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /workspace:
+    get:
+      operationId: getWorkspace
+      tags: [Sync]
+      summary: The user's synced groups and settings
+      description: |
+        Returns the user's workspace (created on first use): its settings and
+        its groups. With `since`, only groups changed after that time are
+        returned, including deleted ones (`deletedAt` set) so the Mac can
+        remove them too. Pass the previous response's `serverTime` as `since`.
+      parameters:
+        - name: since
+          in: query
+          required: false
+          description: Only return groups changed after this time.
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: The workspace.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SyncedWorkspace"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+    patch:
+      operationId: updateWorkspaceSettings
+      tags: [Sync]
+      summary: Change the synced settings
+      description: Last write wins. A change older than the stored settings is ignored, and the stored settings are returned.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SyncedSettings"
+      responses:
+        "200":
+          description: The settings now stored.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SyncedSettings"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /workspace/groups/{groupID}:
+    parameters:
+      - name: groupID
+        in: path
+        required: true
+        description: Chosen by the Mac that created the group.
+        schema:
+          type: string
+          format: uuid
+    put:
+      operationId: putGroup
+      tags: [Sync]
+      summary: Create or update a group
+      description: |
+        Last write wins: a change whose `updatedAt` isn't later than the
+        stored group's is ignored, and the stored group is returned.
+        Members are remote identities (see `SyncedGroup`); repositories are
+        created in the workspace as needed. A group that another Mac already
+        created with the same name is merged into it: the response then has
+        that group's ID, which the Mac should adopt.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SyncedGroup"
+      responses:
+        "200":
+          description: The group now stored.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SyncedGroup"
+        "400":
+          description: The group is invalid (for example, the ID doesn't match the path).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+    delete:
+      operationId: deleteGroup
+      tags: [Sync]
+      summary: Delete a group
+      description: |
+        Marks the group deleted at `deletedAt`, unless it changed after that.
+        Its repositories stay in the workspace.
+      parameters:
+        - name: deletedAt
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "204":
+          description: Deleted (or already deleted, or not found).
         "401":
           $ref: "#/components/responses/Unauthorized"
         "429":
@@ -632,3 +749,62 @@ components:
           type: string
           description: The GitHub event that caused it.
           enum: [check_run, check_suite, pull_request, pull_request_review, push]
+    SyncedWorkspace:
+      type: object
+      required: [serverTime, settings, groups]
+      properties:
+        serverTime:
+          type: string
+          format: date-time
+          description: Pass as `since` on the next request.
+        settings:
+          $ref: "#/components/schemas/SyncedSettings"
+        groups:
+          type: array
+          items:
+            $ref: "#/components/schemas/SyncedGroup"
+    SyncedSettings:
+      type: object
+      required: [updatedAt]
+      properties:
+        staleBranchDays:
+          type: integer
+          minimum: 0
+          maximum: 3650
+          description: Days without commits before a branch is stale; `0` turns the check off. Absent means the app's default.
+        updatedAt:
+          type: string
+          format: date-time
+          description: When the settings were changed, by the Mac's clock.
+    SyncedGroup:
+      type: object
+      required: [id, name, sortOrder, members, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        sortOrder:
+          type: integer
+        members:
+          type: array
+          maxItems: 1000
+          description: |
+            Remote identities of the member repositories: `host/path`,
+            lowercased, without scheme, user, or `.git` (for example
+            `github.com/owner/repo`).
+          items:
+            type: string
+            minLength: 1
+            maxLength: 500
+        updatedAt:
+          type: string
+          format: date-time
+          description: When the group was changed, by the Mac's clock.
+        deletedAt:
+          type: string
+          format: date-time
+          description: Set when the group was deleted.

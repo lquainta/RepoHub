@@ -13,5 +13,6 @@ enum Migrations {
         CreateRepoSnapshots(),
         CreateWebhookEvents(),
         CreateIndexes(),
+        AddGroupSyncedAt(),
     ]
 }

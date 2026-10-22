@@ -262,7 +262,7 @@ struct APIHandler: APIProtocol {
 
     // MARK: - Mapping
 
-    private static func error(_ reason: String) -> Components.Schemas._Error {
+    static func error(_ reason: String) -> Components.Schemas._Error {
         .init(error: true, reason: reason)
     }
 

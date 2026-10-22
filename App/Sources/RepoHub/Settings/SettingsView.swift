@@ -19,7 +19,7 @@ struct SettingsView: View {
                 AppSettings(settings: settings)
             }
             Tab("Account", systemImage: "person.crop.circle") {
-                AccountSettings(account: account, settings: settings)
+                AccountSettings(account: account, settings: settings, sync: library.sync)
             }
         }
         .frame(width: 520, height: 400)
@@ -67,6 +67,7 @@ private struct GeneralSettings: View {
                 }
                 .onChange(of: settings.staleBranchDays) {
                     Task { await library.refreshStatuses() }
+                    library.sync?.scheduleSync()
                 }
                 Text("Inactive branches are suggested in Clean Up Branches. Merged branches always are.")
                     .font(.caption)

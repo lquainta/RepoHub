@@ -236,6 +236,60 @@ actor FakeAPI: APIClienting {
         return .octocat
     }
 
+    /// The synced workspace, as an in-memory server with the backend's
+    /// last-write-wins rules (`serverTime` advances one second per write).
+    var serverGroups: [UUID: (group: SyncedGroup, syncedAt: Date)] = [:]
+    var serverSettings = SyncedSettings(staleBranchDays: nil, updatedAt: .distantPast)
+    var serverClock = Date(timeIntervalSince1970: 2_000_000_000)
+    private(set) var syncLog: [String] = []
+
+    func setServerSettings(_ settings: SyncedSettings) {
+        serverSettings = settings
+    }
+
+    func workspace(since: Date?, accessToken: String) async throws -> SyncedWorkspace {
+        syncLog.append("get")
+        let groups = serverGroups.values
+            .filter { since == nil || $0.syncedAt > since ?? .distantPast }
+            .map(\.group)
+            .sorted { $0.name < $1.name }
+        return SyncedWorkspace(serverTime: serverClock, settings: serverSettings, groups: groups)
+    }
+
+    func updateSettings(_ settings: SyncedSettings, accessToken: String) async throws -> SyncedSettings {
+        syncLog.append("settings \(settings.staleBranchDays ?? -1)")
+        if settings.updatedAt > serverSettings.updatedAt {
+            serverSettings = settings
+        }
+        return serverSettings
+    }
+
+    func putGroup(_ group: SyncedGroup, accessToken: String) async throws -> SyncedGroup {
+        syncLog.append("put \(group.name)")
+        let existing =
+            serverGroups[group.id]?.group
+            ?? serverGroups.values.map(\.group).first { $0.name.lowercased() == group.name.lowercased() }
+        if let existing, group.updatedAt <= existing.updatedAt {
+            return existing
+        }
+        var stored = group
+        stored.id = existing?.id ?? group.id
+        serverClock += 1
+        serverGroups[stored.id] = (stored, serverClock)
+        return stored
+    }
+
+    func deleteGroup(id: UUID, deletedAt: Date, accessToken: String) async throws {
+        syncLog.append("delete \(id)")
+        guard var group = serverGroups[id]?.group, group.deletedAt == nil, deletedAt > group.updatedAt else {
+            return
+        }
+        group.deletedAt = deletedAt
+        group.updatedAt = deletedAt
+        serverClock += 1
+        serverGroups[id] = (group, serverClock)
+    }
+
     /// Live changes to send; the stream ends after the last one.
     var changes: [GitHubRepository] = []
     /// Errors to throw from successive `repositoryChanges` calls before streaming.
