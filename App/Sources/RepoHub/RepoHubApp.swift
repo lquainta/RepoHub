@@ -11,6 +11,7 @@ struct RepoHubApp: App {
     private let container: ModelContainer
     @State private var library: LibraryViewModel
     @State private var settings = SettingsModel()
+    @State private var account: AccountModel
     @AppStorage(AppPreferences.showMenuBarExtraKey) private var showMenuBarExtra = true
     @AppStorage(AppPreferences.menuBarOnlyKey) private var menuBarOnly = false
     private let launchFolders: [URL]
@@ -26,12 +27,20 @@ struct RepoHubApp: App {
             )
         )
         launchFolders = Self.launchFolders(environment: environment)
+        _account = State(
+            initialValue: AccountModel(
+                api: RepoHubAPI(baseURL: AppPreferences.backendURL(environment)),
+                credentials: UITestSupport.usesInMemoryStore(environment)
+                    ? InMemoryCredentialStore() : KeychainCredentialStore()
+            )
+        )
     }
 
     var body: some Scene {
         WindowGroup(id: Self.mainWindowID) {
             LibraryView(model: library)
                 .task { await library.start(addingFolders: launchFolders) }
+                .task { await account.restore() }
         }
         .modelContainer(container)
         .defaultLaunchBehavior(menuBarOnly && showMenuBarExtra ? .suppressed : .presented)
@@ -40,15 +49,17 @@ struct RepoHubApp: App {
         }
 
         Settings {
-            SettingsView(settings: settings, library: library)
+            SettingsView(settings: settings, library: library, account: account)
         }
 
         MenuBarExtra(isInserted: $showMenuBarExtra) {
             MenuBarContent(library: library)
                 .task { await library.start(addingFolders: launchFolders) }
+                .task { await account.restore() }
         } label: {
             MenuBarLabel(library: library)
                 .task { await library.start(addingFolders: launchFolders) }
+                .task { await account.restore() }
                 .onChange(of: menuBarOnly && showMenuBarExtra, initial: true) { _, accessory in
                     // Menu-bar-only hides the Dock icon; it needs the menu bar icon to stay reachable.
                     NSApplication.shared.setActivationPolicy(accessory ? .accessory : .regular)

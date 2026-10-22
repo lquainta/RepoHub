@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 struct SettingsView: View {
     @Bindable var settings: SettingsModel
     let library: LibraryViewModel
+    let account: AccountModel
 
     var body: some View {
         TabView {
@@ -16,6 +17,9 @@ struct SettingsView: View {
             }
             Tab("Apps", systemImage: "app.badge") {
                 AppSettings(settings: settings)
+            }
+            Tab("Account", systemImage: "person.crop.circle") {
+                AccountSettings(account: account)
             }
         }
         .frame(width: 520, height: 400)
