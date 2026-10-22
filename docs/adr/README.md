@@ -13,6 +13,7 @@ Significant decisions, why they were made, and what they cost. Format: [MADR](ht
 | [0007](0007-host-on-fly-io.md) | Host the backend on Fly.io | Accepted |
 | [0008](0008-design-the-api-spec-first.md) | Design the API spec-first with OpenAPI | Accepted |
 | [0009](0009-distribute-ad-hoc-signed-builds.md) | Distribute the app as an ad-hoc signed DMG | Accepted |
+| [0010](0010-run-postgres-and-redis-on-fly.md) | Run single-node Postgres and pay-as-you-go Redis on Fly.io | Accepted |
 
 ## Adding an ADR
 

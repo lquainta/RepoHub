@@ -1,5 +1,20 @@
 # Deployment
 
+## Production
+
+The backend runs on Fly.io at **<https://repohub-backend.fly.dev>** ([ADR 0007](adr/0007-host-on-fly-io.md), [ADR 0010](adr/0010-run-postgres-and-redis-on-fly.md)).
+
+| Fly app | What | Region |
+| --- | --- | --- |
+| `repohub-backend` | The API: one always-on shared-cpu-1x machine, 512 MB, from [`fly.toml`](../fly.toml) | `dfw` |
+| `repohub-db` | PostgreSQL (single node), database `repohub`, reached over Fly's private network | `dfw` |
+| `repohub-redis` | Upstash Redis, pay-as-you-go | `dfw` |
+
+- **Deploying:** `fly deploy --ha=false --build-arg BUILD_COMMIT=$(git rev-parse --short HEAD)` from the repository root. `--ha=false` keeps it to one machine; without it, Fly adds a second machine for high availability, which doubles the cost. Fly builds `Backend/Dockerfile` remotely and runs **`migrate --yes` as the release command**. Only if that succeeds does it replace the machine (rolling) and wait for the `/health` check. Continuous deployment from `main` is #43.
+- **Secrets:** `DATABASE_URL` (set by `fly postgres attach`), `REDIS_URL`, `JWT_SIGNING_KEY`, `TOKEN_ENCRYPTION_KEY`, `GITHUB_CLIENT_ID`, `GITHUB_WEBHOOK_SECRET`. Manage them with `fly secrets list|set --app repohub-backend`; they're never in the repository. Losing `TOKEN_ENCRYPTION_KEY` means users must sign in again.
+- **Logs:** JSON lines (`LOG_FORMAT=json`), viewed with `fly logs --app repohub-backend`.
+- **Database access:** `fly postgres connect --app repohub-db` for a `psql` session, or `fly proxy 15432:5432 --app repohub-db` to use a local client.
+
 ## Local stack
 
 [`docker-compose.yml`](../docker-compose.yml) runs the whole backend locally with one command:
