@@ -163,6 +163,63 @@ struct APIHandler: APIProtocol {
         return .ok(.init(body: .json(.init(repositories: statuses.map(Self.status)))))
     }
 
+    // MARK: - Events
+
+    /// Webhook events that change what the app shows, and are sent to `GET /events`.
+    static let liveEvents: Set<String> = ["check_run", "check_suite", "pull_request", "pull_request_review", "push"]
+    /// How often the stream sends a comment so proxies don't close it.
+    static let keepAliveInterval: Duration = .seconds(25)
+    /// How long a stream stays open; the app reconnects with a fresh access token.
+    static let streamLifetime: Duration = .seconds(600)
+
+    func streamEvents(_ input: Operations.streamEvents.Input) async throws -> Operations.streamEvents.Output {
+        guard let user = RequestContext.user else {
+            return .unauthorized(.init(body: .json(Self.error("Not signed in."))))
+        }
+        let changes = await app.eventHub.subscribe(user: user.userID)
+        let events = Self.eventStream(changes)
+        let body = HTTPBody(events.asEncodedServerSentEvents(), length: .unknown, iterationBehavior: .single)
+        return .ok(.init(body: .text_event_hyphen_stream(body)))
+    }
+
+    /// `repository` events for `changes`, and `keep-alive` events every
+    /// ``keepAliveInterval``, ending after ``streamLifetime``.
+    static func eventStream(
+        _ changes: AsyncStream<RepositoryChange>,
+        keepAlive: Duration = keepAliveInterval,
+        lifetime: Duration = streamLifetime
+    ) -> AsyncStream<ServerSentEvent> {
+        AsyncStream { continuation in
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = .sortedKeys
+            let forward = Task {
+                for await change in changes {
+                    let data = (try? encoder.encode(change)).flatMap { String(bytes: $0, encoding: .utf8) }
+                    continuation.yield(ServerSentEvent(event: "repository", data: data))
+                }
+                continuation.finish()
+            }
+            let timers = Task {
+                let clock = ContinuousClock()
+                let end = clock.now.advanced(by: lifetime)
+                while clock.now < end {
+                    try? await Task.sleep(for: min(keepAlive, clock.now.duration(to: end)))
+                    guard !Task.isCancelled else {
+                        return
+                    }
+                    if clock.now < end {
+                        continuation.yield(ServerSentEvent(event: "keep-alive"))
+                    }
+                }
+                continuation.finish()
+            }
+            continuation.onTermination = { _ in
+                forward.cancel()
+                timers.cancel()
+            }
+        }
+    }
+
     // MARK: - Webhooks
 
     func receiveGitHubWebhook(
@@ -189,8 +246,15 @@ struct APIHandler: APIProtocol {
         )
         if try await FluentWebhookEventStore(database: app.db).insertIfNew(event) {
             let parts = fullName.split(separator: "/", maxSplits: 1).map(String.init)
-            if parts.count == 2 {
-                await app.githubCache.invalidate(owner: parts[0], name: parts[1])
+            // Other events (stars, issues, ...) don't change what the app shows.
+            if parts.count == 2, Self.liveEvents.contains(event.event) {
+                let users = await app.githubCache.invalidate(owner: parts[0], name: parts[1])
+                if !users.isEmpty {
+                    await app.eventHub.publish(
+                        RepositoryChange(owner: parts[0], name: parts[1], event: event.event),
+                        to: users
+                    )
+                }
             }
         }
         return .accepted(.init())

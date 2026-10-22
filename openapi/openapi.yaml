@@ -256,6 +256,36 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "429":
           $ref: "#/components/responses/RateLimited"
+  /events:
+    get:
+      operationId: streamEvents
+      tags: [GitHub]
+      summary: Live updates for the user's repositories
+      description: |
+        A [server-sent events](https://html.spec.whatwg.org/multipage/server-sent-events.html)
+        stream. When a GitHub webhook reports a change (check runs, check
+        suites, or pull requests) to a repository the user has asked about
+        with `POST /github/status`, the server sends a `repository` event
+        whose data is a `RepositoryChanged` object. The app then asks for that
+        repository's status again.
+
+        A `keep-alive` event without data is sent every 25 seconds. The server ends the
+        stream after 10 minutes; reconnect with a fresh access token.
+      responses:
+        "200":
+          description: The event stream.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                format: binary
+                description: "`repository` events whose `data` is JSON matching `RepositoryChanged`."
+                contentSchema:
+                  $ref: "#/components/schemas/RepositoryChanged"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
   /webhooks/github:
     post:
       operationId: receiveGitHubWebhook
@@ -589,3 +619,16 @@ components:
           type: string
           format: uri
           description: The failing run if there is one, otherwise the most recent run.
+    RepositoryChanged:
+      type: object
+      description: Data of a `repository` event.
+      required: [owner, name, event]
+      properties:
+        owner:
+          type: string
+        name:
+          type: string
+        event:
+          type: string
+          description: The GitHub event that caused it.
+          enum: [check_run, check_suite, pull_request, pull_request_review, push]

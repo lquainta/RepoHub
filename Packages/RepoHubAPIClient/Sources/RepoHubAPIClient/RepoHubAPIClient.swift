@@ -40,3 +40,30 @@ public struct BearerTokenMiddleware: ClientMiddleware {
         return try await next(request, body, baseURL)
     }
 }
+
+extension Operations.streamEvents.Output.Ok {
+    /// The stream's `repository` events, decoded. Keep-alive events and
+    /// events whose data doesn't decode are skipped.
+    public func repositoryChanges() throws -> AsyncThrowingStream<Components.Schemas.RepositoryChanged, any Error> {
+        let events = try body.text_event_hyphen_stream.asDecodedServerSentEvents()
+        return AsyncThrowingStream { continuation in
+            let task = Task {
+                do {
+                    let decoder = JSONDecoder()
+                    for try await event in events where event.event == "repository" {
+                        guard let data = event.data.map({ Data($0.utf8) }),
+                            let change = try? decoder.decode(Components.Schemas.RepositoryChanged.self, from: data)
+                        else {
+                            continue
+                        }
+                        continuation.yield(change)
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+}

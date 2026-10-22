@@ -41,6 +41,16 @@ extension GitHubRepositoryStatus.PullRequest {
     }
 }
 
+/// Counts sleeps without waiting.
+actor SleepCounter {
+    private(set) var count = 0
+
+    func tick() async {
+        count += 1
+        await Task.yield()
+    }
+}
+
 @MainActor
 @Suite("GitHub status")
 struct GitHubStatusModelTests {
@@ -126,6 +136,33 @@ struct GitHubStatusModelTests {
         await model.refresh([request("a"), request("b")])
 
         #expect(updates.map(\.0) == [0, 1] && updates.map(\.1) == [1, 2])
+    }
+
+    @Test("A pushed change refreshes only that repository, merging into the rest, and reconnects")
+    func liveUpdate() async throws {
+        await api.setGitHubStatus(.fixture("a", checks: .pending))
+        await api.setGitHubStatus(.fixture("b", checks: .success))
+        let sleeps = SleepCounter()
+        let model = GitHubStatusModel(account: await signedIn(), api: api, sleep: { _ in await sleeps.tick() })
+        let requests = [request("a"), request("b")]
+        await model.refresh(requests)
+        let batchesBefore = await api.statusBatches.count
+
+        await api.setGitHubStatus(.fixture("a", checks: .failure))
+        await api.setChanges([GitHubRepository(owner: "OWNER", name: "A")], failingFirst: [.unavailable("down")])
+        model.startLiveUpdates { requests }
+        let alpha = GitHubRepository(owner: "owner", name: "a")
+        while model.status(for: alpha, branch: "main")?.checks?.state != .failure {
+            await Task.yield()
+        }
+        model.stopLiveUpdates()
+
+        // One retry after the failed connection, then one live refresh of `a` only.
+        #expect(await api.statusBatches.dropFirst(batchesBefore).map { $0.map(\.repository.name) } == [["a"]])
+        let beta = GitHubRepository(owner: "owner", name: "b")
+        #expect(model.status(for: beta, branch: "main")?.checks?.state == .success)
+        #expect(await api.changeStreams >= 2)
+        #expect(await sleeps.count >= 1)
     }
 
     @Test("Rows sort failing CI first, then review requests, then running CI, then the rest")

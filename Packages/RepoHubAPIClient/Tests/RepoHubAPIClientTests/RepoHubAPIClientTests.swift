@@ -8,11 +8,13 @@ import Testing
 private actor StubTransport: ClientTransport {
     let status: HTTPResponse.Status
     let json: String
+    let contentType: String
     private(set) var requests: [HTTPRequest] = []
 
-    init(status: HTTPResponse.Status = .ok, json: String) {
+    init(status: HTTPResponse.Status = .ok, json: String, contentType: String = "application/json") {
         self.status = status
         self.json = json
+        self.contentType = contentType
     }
 
     func send(
@@ -23,7 +25,7 @@ private actor StubTransport: ClientTransport {
     ) async throws -> (HTTPResponse, HTTPBody?) {
         requests.append(request)
         var response = HTTPResponse(status: status)
-        response.headerFields[.contentType] = "application/json"
+        response.headerFields[.contentType] = contentType
         return (response, HTTPBody(json))
     }
 }
@@ -71,5 +73,35 @@ struct BearerTokenMiddlewareTests {
 
         #expect(user.login == "octocat")
         #expect(await transport.requests.first?.headerFields[.authorization] == "Bearer abc")
+    }
+}
+
+@Suite("Event stream")
+struct EventStreamTests {
+    @Test("Repository events are decoded; keep-alives and unknown events are skipped")
+    func repositoryChanges() async throws {
+        let stream = """
+            event: keep-alive
+
+            event: repository
+            data: {"owner":"o","name":"r","event":"check_run"}
+
+            event: other
+            data: {}
+
+            event: repository
+            data: {"owner":"o","name":"s","event":"pull_request"}
+
+
+            """
+        let transport = StubTransport(json: stream, contentType: "text/event-stream")
+        let client = Client(serverURL: try #require(URL(string: "https://example.com")), transport: transport)
+
+        var names: [String] = []
+        for try await change in try await client.streamEvents().ok.repositoryChanges() {
+            names.append(change.name)
+        }
+
+        #expect(names == ["r", "s"])
     }
 }
