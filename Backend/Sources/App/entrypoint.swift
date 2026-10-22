@@ -6,7 +6,7 @@ import Vapor
 enum Entrypoint {
     static func main() async throws {
         var env = try Environment.detect()
-        try LoggingSystem.bootstrap(from: &env)
+        try LogFormat.bootstrap(&env)
 
         let app = try await Application.make(env)
 

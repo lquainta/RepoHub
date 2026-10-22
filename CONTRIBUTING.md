@@ -81,6 +81,29 @@ Versions follow [Semantic Versioning](https://semver.org) and come from the Conv
 
 Release PRs don't need a linked issue. Like any PR, they need green checks.
 
+## Logging
+
+Logs must help diagnose problems without leaking anything private.
+
+| Level | Use for | Example |
+| --- | --- | --- |
+| `debug` | Detail for developers, off in production | cache key computed, git command arguments |
+| `info` | Normal events worth seeing | signed in, scanned 12 repositories, background fetch |
+| `notice` | Notable but expected events (backend production default) | migrations ran, configuration loaded |
+| `warning` | Something degraded but recovered | Redis unavailable (falling back), webhook signature rejected |
+| `error` | An operation failed | git status failed, GitHub returned 502 |
+| `critical` / `fault` | The process can't continue | data store can't be opened |
+
+- **Never log secrets.** No tokens, refresh tokens, webhook secrets, or `DATABASE_URL`. Log an identifier (user login, device id) instead.
+- **Backend:**
+  - log through `req.logger` or `app.contextLogger`, so every line has the request's `request_id`
+  - production logs are JSON (`LOG_FORMAT`); the level comes from `LOG_LEVEL` without a code change
+  - put structured details in `metadata:`, not the message
+- **App:**
+  - use `os.Logger` with the `com.lquainta.RepoHub` subsystem and a category per feature
+  - mark anything that can identify the user, such as file paths, remote URLs, or git's stderr, as `privacy: .private`
+  - `.public` is only for fixed strings and counts
+
 ## Architecture decisions
 
 Significant decisions (a new service, library, data store, or a change to how components talk) get an [Architecture Decision Record](docs/adr/README.md) in the same PR. Copy [`docs/adr/template.md`](docs/adr/template.md); never rewrite an accepted ADR. Supersede it with a new one instead.

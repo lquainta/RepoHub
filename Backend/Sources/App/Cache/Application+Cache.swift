@@ -30,6 +30,6 @@ extension Application {
 
     /// The GitHub API through the cache.
     var githubCache: GitHubCache {
-        GitHubCache(store: cacheStore, api: VaporGitHubAPI(client: client), logger: logger)
+        GitHubCache(store: cacheStore, api: VaporGitHubAPI(client: client), logger: contextLogger)
     }
 }
