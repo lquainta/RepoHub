@@ -55,3 +55,21 @@ struct RepoHubAPIClientTests {
         #expect(statusCode == 503)
     }
 }
+
+@Suite("BearerTokenMiddleware")
+struct BearerTokenMiddlewareTests {
+    @Test("The access token is sent as a bearer token")
+    func addsAuthorization() async throws {
+        let transport = StubTransport(json: #"{"id":"6F9619FF-8B86-D011-B42D-00C04FC964FF","login":"octocat"}"#)
+        let client = Client(
+            serverURL: try #require(URL(string: "https://example.com")),
+            transport: transport,
+            middlewares: [BearerTokenMiddleware(token: "abc")]
+        )
+
+        let user = try await client.getCurrentUser().ok.body.json
+
+        #expect(user.login == "octocat")
+        #expect(await transport.requests.first?.headerFields[.authorization] == "Bearer abc")
+    }
+}

@@ -101,3 +101,15 @@ struct SettingsModelTests {
         #expect(settings.errorMessage?.contains("Operation not permitted") == true)
     }
 }
+
+@Suite("Backend URL")
+struct BackendURLTests {
+    @Test("Production by default; REPOHUB_BACKEND_URL overrides it")
+    func backendURL() {
+        #expect(AppPreferences.backendURL([:]).absoluteString == "https://repohub-backend.fly.dev")
+        #expect(
+            AppPreferences.backendURL(["REPOHUB_BACKEND_URL": "http://localhost:8080"]).absoluteString
+                == "http://localhost:8080"
+        )
+    }
+}
