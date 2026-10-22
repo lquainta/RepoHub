@@ -16,6 +16,8 @@ struct AppConfig: Sendable {
     let security: SecurityConfig
     /// Where unhandled errors are reported; off when unset (#51).
     let sentryDSN: SentryDSN?
+    /// Resend API key and recipient for error alert emails (#52); off unless both are set.
+    let emailAlerts: (apiKey: String, recipient: String)?
     /// Enables `GET /debug/error` for this token, to check error reporting
     /// end to end; off when unset.
     let debugToken: String?
@@ -36,6 +38,14 @@ struct AppConfig: Sendable {
             sentryDSN = parsed
         } else {
             sentryDSN = nil
+        }
+        if let key = reader.optional("EMAIL_API_KEY"), let recipient = reader.optional("ALERT_EMAIL_TO") {
+            guard recipient.contains("@") else {
+                throw ConfigurationError.invalid(key: "ALERT_EMAIL_TO", expected: "an email address")
+            }
+            emailAlerts = (key, recipient)
+        } else {
+            emailAlerts = nil
         }
         debugToken = reader.optional("DEBUG_TOKEN").flatMap { $0.count >= 32 ? $0 : nil }
     }
