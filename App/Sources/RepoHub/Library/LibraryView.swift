@@ -6,6 +6,7 @@ struct LibraryView: View {
     @Bindable var model: LibraryViewModel
     @State private var isImporting = false
     @State private var groupPrompt: GroupPrompt?
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         NavigationSplitView {
@@ -27,6 +28,12 @@ struct LibraryView: View {
         .toolbar {
             ToolbarItem {
                 QuickFilterMenu(filters: $model.filter.quickFilters)
+            }
+            ToolbarItem {
+                Button("Activity", systemImage: "chart.bar.xaxis") {
+                    openWindow(id: RepoHubApp.activityWindowID)
+                }
+                .help("Show commits per day for the last 30 days (⇧⌘A)")
             }
             ToolbarItemGroup {
                 if let progress = model.actions.fetchAllProgress {

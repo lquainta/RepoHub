@@ -7,6 +7,8 @@ import SwiftUI
 struct RepoHubApp: App {
     /// Identifies the dashboard window so the menu bar can reopen it.
     static let mainWindowID = "main"
+    /// Identifies the activity history window.
+    static let activityWindowID = "activity"
 
     private let container: ModelContainer
     @State private var library: LibraryViewModel
@@ -41,6 +43,7 @@ struct RepoHubApp: App {
         }
         sync.onApplied = { [weak library] in library?.load() }
         library.sync = sync
+        library.activity = ActivityModel(account: account, api: api)
         _library = State(initialValue: library)
         launchFolders = Self.launchFolders(environment: environment)
     }
@@ -53,6 +56,7 @@ struct RepoHubApp: App {
                 .task(id: account.user?.id) {
                     await library.refreshGitHub()
                     await library.sync?.sync()
+                    await library.activity?.upload(library.activitySources)
                 }
         }
         .modelContainer(container)
@@ -60,6 +64,14 @@ struct RepoHubApp: App {
         .commands {
             RepositoryCommands(model: library)
         }
+
+        Window("Activity", id: Self.activityWindowID) {
+            if let activity = library.activity {
+                ActivityView(model: activity, library: library)
+            }
+        }
+        .keyboardShortcut("a", modifiers: [.command, .shift])
+        .defaultSize(width: 720, height: 520)
 
         Settings {
             SettingsView(settings: settings, library: library, account: account)

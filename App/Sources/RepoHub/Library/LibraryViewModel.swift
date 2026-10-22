@@ -27,6 +27,8 @@ final class LibraryViewModel {
     let gitHub: GitHubStatusModel?
     /// Syncs groups and settings with the user's other Macs, if set.
     var sync: SyncModel?
+    /// Uploads activity snapshots and loads the history chart, if set.
+    var activity: ActivityModel?
     /// Path of the selected repository, if any.
     private(set) var selectedPath: String?
     /// User-defined groups, oldest first.
@@ -91,6 +93,23 @@ final class LibraryViewModel {
         gitHub?.startLiveUpdates { [weak self] in self?.gitHubRequests ?? [] }
         // After the statuses, so repositories' remote identities are known.
         await sync?.sync()
+        await activity?.upload(activitySources)
+    }
+
+    /// Repositories with a remote, for activity snapshots.
+    var activitySources: [ActivitySource] {
+        repositories.compactMap { repository in
+            remoteIdentity(of: repository).map { identity in
+                ActivitySource(
+                    path: repository.path,
+                    identity: identity,
+                    name: repository.name,
+                    status: statuses.state(for: repository.path).flatMap {
+                        if case .loaded(let status) = $0 { status } else { nil }
+                    }
+                )
+            }
+        }
     }
 
     /// A tracked repository's remote identity, once its remotes have been read.
