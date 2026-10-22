@@ -1,5 +1,6 @@
 import Foundation
 import RepoHubCore
+import Testing
 
 @testable import RepoHub
 
@@ -163,5 +164,113 @@ final class FakeWorkspace: WorkspaceOpening {
 
     func copyToClipboard(_ string: String) {
         clipboard = string
+    }
+}
+
+/// An `APIClienting` fake with scripted poll results that records every call.
+actor FakeAPI: APIClienting {
+    var authorization = DeviceAuthorization(
+        deviceCode: "device",
+        userCode: "WDJB-MJHT",
+        verificationURL: URL(fileURLWithPath: "/login/device"),
+        expiresIn: .seconds(900),
+        interval: .seconds(5)
+    )
+    /// Returned (or thrown) by successive polls; the last one repeats.
+    var polls: [Result<DeviceSignInPoll, APIError>] = []
+    var refreshResult: Result<Session, APIError> = .success(.fixture(access: "refreshed", refresh: "r2"))
+    var signOutError: APIError?
+    /// Answers for ``repositoryStatuses(_:accessToken:)``, by repository; unknown ones are `notFound`.
+    var gitHubStatuses: [GitHubRepository: GitHubRepositoryStatus] = [:]
+    var gitHubError: APIError?
+    /// Every batch requested.
+    private(set) var statusBatches: [[GitHubStatusRequest]] = []
+    private(set) var calls: [String] = []
+
+    func setGitHubStatus(_ status: GitHubRepositoryStatus) {
+        gitHubStatuses[status.repository] = status
+    }
+
+    func setGitHubError(_ error: APIError?) {
+        gitHubError = error
+    }
+
+    func setPolls(_ polls: [Result<DeviceSignInPoll, APIError>]) {
+        self.polls = polls
+    }
+
+    func setRefreshResult(_ result: Result<Session, APIError>) {
+        refreshResult = result
+    }
+
+    func setSignOutError(_ error: APIError?) {
+        signOutError = error
+    }
+
+    func startDeviceSignIn() async throws -> DeviceAuthorization {
+        calls.append("start")
+        return authorization
+    }
+
+    func pollDeviceSignIn(deviceCode: String, deviceName: String) async throws -> DeviceSignInPoll {
+        calls.append("poll \(deviceCode) \(deviceName)")
+        let next = polls.count > 1 ? polls.removeFirst() : polls[0]
+        return try next.get()
+    }
+
+    func refreshSession(refreshToken: String) async throws -> Session {
+        calls.append("refresh \(refreshToken)")
+        try await Task.sleep(for: .milliseconds(10))
+        return try refreshResult.get()
+    }
+
+    func signOut(accessToken: String) async throws {
+        calls.append("signOut \(accessToken)")
+        if let signOutError {
+            throw signOutError
+        }
+    }
+
+    func currentUser(accessToken: String) async throws -> UserProfile {
+        calls.append("me \(accessToken)")
+        return .octocat
+    }
+
+    func repositoryStatuses(
+        _ requests: [GitHubStatusRequest],
+        accessToken: String
+    ) async throws -> [GitHubRepositoryStatus] {
+        calls.append("status \(accessToken)")
+        statusBatches.append(requests)
+        if let gitHubError {
+            throw gitHubError
+        }
+        return requests.map {
+            gitHubStatuses[$0.repository] ?? GitHubRepositoryStatus(repository: $0.repository, error: "notFound")
+        }
+    }
+}
+
+extension UserProfile {
+    static let octocat = UserProfile(id: "1", login: "octocat", name: "The Octocat")
+}
+
+extension Session {
+    static func fixture(access: String = "access", refresh: String = "refresh") -> Session {
+        Session(accessToken: access, refreshToken: refresh, expiresIn: .seconds(900), user: .octocat)
+    }
+}
+
+/// A clock the tests move forward by hand.
+final class TestClock: @unchecked Sendable {
+    private let lock = NSLock()
+    private var current = Date(timeIntervalSince1970: 1_000_000)
+
+    func now() -> Date {
+        lock.withLock { current }
+    }
+
+    func advance(by seconds: TimeInterval) {
+        lock.withLock { current += seconds }
     }
 }
