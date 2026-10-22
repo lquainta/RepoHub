@@ -28,6 +28,12 @@ RepoHub has three kinds of tests. Every PR must keep all of them green in CI.
   TEST_DATABASE_URL=postgres://repohub:repohub@localhost:5433/repohub_test make test-backend
   ```
 
+- **Running both locally:** `make up` (docker compose), then `make test-integration`. It creates `repohub_test` in the compose Postgres and runs the backend tests against it and the compose Redis.
+- **In CI** the **Backend (Linux)** job runs them against `postgres:18.6` and `redis:8.10` service containers. `IntegrationEnvironmentTests` fails there if either URL is missing, so the integration tests can't silently skip. They cover:
+  - **Persistence:** users, devices, workspaces, repositories, groups and memberships, snapshots, and webhook deliveries (stored once), with cascades and unique constraints (`DatabaseIntegrationTests`).
+  - **Migrations:** every test migrates an empty schema and reverts it (`withMigratedApp`), and CI also runs `scripts/check-migrations.sh` (migrate, revert, migrate).
+  - **Cache:** values round-trip and **expire after their TTL** in real Redis; a second app instance gets a **hit** from Redis within the TTL and a **miss** after invalidation (`RedisCacheIntegrationTests`). Hit, miss, ETag revalidation, and expiry logic are also unit-tested against the in-memory store.
+  - **End to end:** sign-in, refresh, sign-out; GitHub status; live events; two-Mac sync; activity; readiness against real services.
 - **Redis integration tests** read `TEST_REDIS_URL` and are skipped without it. They use unique keys and never flush, so the development Redis is fine:
 
   ```sh
