@@ -56,6 +56,21 @@ RepoHub has three kinds of tests. Every PR must keep all of them green in CI.
   | Scan 500 repositories, sequential baseline | 43 ms (concurrency is 1.9× faster) | — |
   | Parse a 50,000-entry status | 94 ms | **500 ms** |
 
+- **App view models** (`App/Tests/RepoHubTests`) never touch the network, the user's Keychain, or their repositories. Every view model takes its dependencies through a protocol, and the tests pass a fake. Shared fakes are in [`Fakes.swift`](../App/Tests/RepoHubTests/Fakes.swift); fakes used by one suite sit next to it:
+
+  | Seam | Real implementation | Fake |
+  | --- | --- | --- |
+  | `GitServicing` (status, details, fetch/pull, remotes, stale branches) | `GitService` | `FakeGit`: canned results per path, records calls and peak concurrency |
+  | `RepositoryScanning` | `RepositoryScanner` | `FakeScanner`: canned folders |
+  | `APIClienting` (sign-in, sessions, GitHub status) | `RepoHubAPI` (generated OpenAPI client) | `FakeAPI`: scripted polls and statuses, records batches |
+  | `CredentialStoring` | `KeychainCredentialStore` | `InMemoryCredentialStore` |
+  | `WorkspaceOpening` (open apps, browser, clipboard) | `SystemWorkspace` | `FakeWorkspace` |
+  | `LoginItemManaging` | `SystemLoginItem` (`SMAppService`) | `FakeLoginItem` |
+  | `FileWatching` | `FSEventsWatcher` | `FakeWatcher`: emits changes on demand |
+  | Persistence (`LibraryStore`) | SwiftData on disk | `Persistence.makeInMemoryContainer()` |
+  | Time | `Task.sleep`, `Date.init` | injected `sleep` / `now` closures (`TestClock`) |
+
+  What's covered, by view model: `LibraryViewModel` (scanning, rescans, folders, groups, scope, search and quick filters, selection, Fetch All, GitHub badges), `RepositoryFilter` and `DashboardSort` (search, filters, every sort column), `StatusMonitor` (refresh, bounded concurrency, re-requests, error states), `RepositoryDetailModel` (loading, failures, stale selections), `RepositoryActions` (fetch, pull, open, copy, failures), `StaleBranchModel` (preselection and the force-delete confirmation flow), `AccountModel` (device flow, restore, refresh, sign-out), `GitHubStatusModel`, `SettingsModel`, and `AttentionSummary`. Only the FSEvents watcher tests (`AutoRefreshTests`) use the real file system, in a temporary folder they create and delete.
 - **UI tests** cover the main user flows end to end. Keep them few and focused. Use launch arguments to point the app at fixture repositories and a stubbed backend, never at the developer's real folders.
 
 Don't write tests for trivial getters, setters, or memberwise initializers.
