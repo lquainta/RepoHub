@@ -15,6 +15,19 @@ The backend runs on Fly.io at **<https://repohub-backend.fly.dev>** ([ADR 0007](
 - **Logs:** JSON lines (`LOG_FORMAT=json`), viewed with `fly logs --app repohub-backend`.
 - **Database access:** `fly postgres connect --app repohub-db` for a `psql` session, or `fly proxy 15432:5432 --app repohub-db` to use a local client.
 
+### GitHub webhooks (live CI updates)
+
+A repository webhook sends `check_run`, `check_suite`, `pull_request`, `pull_request_review`, and `push` events to `https://repohub-backend.fly.dev/webhooks/github` as JSON, signed with `GITHUB_WEBHOOK_SECRET`. On each event, the backend:
+
+1. verifies the signature;
+2. stores the delivery once;
+3. clears that repository's cached GitHub responses;
+4. sends a `repository` event on `GET /events` to every signed-in user who had it cached.
+
+The app then refreshes only that repository, so a CI change shows up within seconds instead of at the next 60-second poll.
+
+The webhook is configured on `lquainta/RepoHub`. To add it to another repository, add one with the same URL, secret, and events under **Settings → Webhooks**. Repositories without a webhook still update by polling.
+
 ## Local stack
 
 [`docker-compose.yml`](../docker-compose.yml) runs the whole backend locally with one command:

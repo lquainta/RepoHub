@@ -130,6 +130,9 @@ protocol APIClienting: Sendable {
     /// Pull requests and checks for up to 100 repositories, in request order.
     func repositoryStatuses(_ requests: [GitHubStatusRequest], accessToken: String) async throws
         -> [GitHubRepositoryStatus]
+    /// Repositories whose pull requests or checks just changed on GitHub,
+    /// as they happen, until the server ends the stream.
+    func repositoryChanges(accessToken: String) async throws -> AsyncThrowingStream<GitHubRepository, any Error>
 }
 
 /// ``APIClienting`` backed by the client generated from the OpenAPI spec.
@@ -244,6 +247,33 @@ struct RepoHubAPI: APIClienting {
             throw APIError.rateLimited
         case .undocumented(let statusCode, _):
             throw APIError.unexpectedResponse(statusCode: statusCode)
+        }
+    }
+
+    func repositoryChanges(accessToken: String) async throws -> AsyncThrowingStream<GitHubRepository, any Error> {
+        let changes: AsyncThrowingStream<Components.Schemas.RepositoryChanged, any Error>
+        switch try await client(accessToken).streamEvents() {
+        case .ok(let ok):
+            changes = try ok.repositoryChanges()
+        case .unauthorized:
+            throw APIError.unauthorized
+        case .tooManyRequests:
+            throw APIError.rateLimited
+        case .undocumented(let statusCode, _):
+            throw APIError.unexpectedResponse(statusCode: statusCode)
+        }
+        return AsyncThrowingStream { continuation in
+            let task = Task {
+                do {
+                    for try await change in changes {
+                        continuation.yield(GitHubRepository(owner: change.owner, name: change.name))
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { _ in task.cancel() }
         }
     }
 

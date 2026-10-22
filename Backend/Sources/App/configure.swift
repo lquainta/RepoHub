@@ -8,6 +8,7 @@ func configure(_ app: Application, reader: EnvironmentReader = EnvironmentReader
     app.middleware.use(RequestIDMiddleware(), at: .beginning)
     app.configureDatabase(app.config.database)
     try app.configureCache(redisURL: app.config.redisURL)
+    app.eventHub = EventHub()
     await app.configureSecurity(app.config.security)
     app.asyncCommands.use(SeedCommand(), as: "seed")
     try routes(app)
