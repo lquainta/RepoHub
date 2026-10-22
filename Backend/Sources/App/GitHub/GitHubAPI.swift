@@ -9,6 +9,33 @@ struct GitHubResponse: Sendable, Equatable {
     var etag: String?
     /// `X-RateLimit-Remaining`, for logging.
     var rateLimitRemaining: Int?
+    /// The next page's path, from the `Link` header's `rel="next"`.
+    var nextPath: String?
+}
+
+extension GitHubResponse {
+    /// The path of the `rel="next"` link in a `Link` header such as
+    /// `<https://api.github.com/repos/o/r/pulls?page=2>; rel="next", <…>; rel="last"`.
+    static func nextPath(fromLink header: String?, baseURL: String) -> String? {
+        guard let header else {
+            return nil
+        }
+        for link in header.split(separator: ",") {
+            let parts = link.split(separator: ";").map { $0.trimmingCharacters(in: .whitespaces) }
+            guard parts.count >= 2, parts.dropFirst().contains(#"rel="next""#),
+                parts[0].hasPrefix("<"), parts[0].hasSuffix(">")
+            else {
+                continue
+            }
+            let url = String(parts[0].dropFirst().dropLast())
+            // Only follow links to the same API, never elsewhere with the user's token.
+            guard url.hasPrefix(baseURL + "/") else {
+                return nil
+            }
+            return String(url.dropFirst(baseURL.count))
+        }
+        return nil
+    }
 }
 
 /// Errors from the GitHub API.
@@ -54,7 +81,8 @@ struct VaporGitHubAPI: GitHubAPI {
                 status: response.status,
                 body: response.body.map { Data($0.readableBytesView) } ?? Data(),
                 etag: response.headers.first(name: .eTag),
-                rateLimitRemaining: remaining
+                rateLimitRemaining: remaining,
+                nextPath: GitHubResponse.nextPath(fromLink: response.headers.first(name: "Link"), baseURL: baseURL)
             )
         case .unauthorized:
             throw GitHubError.unauthorized
