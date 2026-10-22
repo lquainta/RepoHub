@@ -106,12 +106,15 @@ format: ## Format all Swift sources in place with swift-format
 format-check: ## Fail if any Swift source is not formatted
 	swift format lint --strict --recursive --parallel $(FORMAT_PATHS)
 
-.PHONY: migrate migrate-revert check-migrations
+.PHONY: migrate migrate-revert seed check-migrations
 migrate: ## Apply database migrations to $$DATABASE_URL
 	swift run --package-path $(BACKEND_DIR) App migrate --yes
 
 migrate-revert: ## Revert the last batch of migrations on $$DATABASE_URL
 	swift run --package-path $(BACKEND_DIR) App migrate --revert --yes
+
+seed: ## Fill $$DATABASE_URL with development data (refuses production)
+	swift run --package-path $(BACKEND_DIR) App seed
 
 check-migrations: ## Migrate, revert, and migrate again on a clean $$DATABASE_URL
 	scripts/check-migrations.sh

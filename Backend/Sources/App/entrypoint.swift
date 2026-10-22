@@ -1,3 +1,4 @@
+import Foundation
 import Logging
 import Vapor
 
@@ -13,9 +14,11 @@ enum Entrypoint {
             try await configure(app)
             try await app.execute()
         } catch {
+            // Report and exit with a failure status. Rethrowing would crash with
+            // a backtrace for expected failures like a refused command.
             app.logger.report(error: error)
             try? await app.asyncShutdown()
-            throw error
+            exit(1)
         }
         try await app.asyncShutdown()
     }
