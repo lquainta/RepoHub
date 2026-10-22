@@ -8,7 +8,7 @@ repo=lquainta/RepoHub
 bucket=repohub-backups
 
 gh api -X PUT "repos/$repo/environments/backups" --silent \
-    -f 'deployment_branch_policy[protected_branches]=true' \
+    -F 'deployment_branch_policy[protected_branches]=true' \
     -F 'deployment_branch_policy[custom_branch_policies]=false'
 
 # `fly storage create` prints the bucket's credentials once; feed them
