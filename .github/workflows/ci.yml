@@ -90,6 +90,8 @@ jobs:
         run: xcodebuild -version && xcodegen --version
       - name: Build and test
         run: make test-app RESULT_BUNDLE=build/app-unit.xcresult DERIVED_DATA=build/DerivedData
+      - name: Every UI string has a Spanish translation
+        run: make check-localizations
       - name: Export coverage
         run: scripts/app-coverage.sh build/DerivedData coverage/app.lcov
       - name: Coverage summary
