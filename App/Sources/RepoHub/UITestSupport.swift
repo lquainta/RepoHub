@@ -35,3 +35,54 @@ enum UITestSupport {
         return root
     }
 }
+
+extension UITestSupport {
+    /// `1`: create real git repositories (`clean`, `dirty`, and `stale`, which
+    /// has a merged `old-feature` branch) and scan them at launch.
+    static let gitFixturesKey = "REPOHUB_UI_TEST_GIT_FIXTURES"
+    /// `1`: use ``UITestBackend`` instead of the real backend, and don't open a browser.
+    static let stubBackendKey = "REPOHUB_UI_TEST_STUB_BACKEND"
+
+    static func usesStubBackend(_ environment: [String: String]) -> Bool {
+        environment[stubBackendKey] == "1"
+    }
+
+    /// Creates the git fixtures, if requested, and returns their folder.
+    static func makeGitFixtures(_ environment: [String: String]) throws -> URL? {
+        guard environment[gitFixturesKey] == "1" else {
+            return nil
+        }
+        let root = FileManager.default.temporaryDirectory
+            .appending(path: "repohub-ui-git-\(UUID().uuidString)", directoryHint: .isDirectory)
+        for name in ["clean", "dirty", "stale"] {
+            let repository = root.appending(path: name, directoryHint: .isDirectory)
+            try FileManager.default.createDirectory(at: repository, withIntermediateDirectories: true)
+            try git(["init", "--quiet", "--initial-branch=main"], in: repository)
+            try Data("# \(name)\n".utf8).write(to: repository.appending(path: "README.md"))
+            try git(["add", "README.md"], in: repository)
+            try git(["commit", "--quiet", "-m", "Initial commit"], in: repository)
+        }
+        try Data("draft\n".utf8).write(to: root.appending(path: "dirty/notes.txt"))
+        try git(["branch", "old-feature"], in: root.appending(path: "stale", directoryHint: .isDirectory))
+        return root
+    }
+
+    /// Runs git with a fixed identity and none of the user's configuration.
+    private static func git(_ arguments: [String], in directory: URL) throws {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+        process.arguments = arguments
+        process.currentDirectoryURL = directory
+        process.environment = [
+            "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_NOSYSTEM": "1",
+            "GIT_AUTHOR_NAME": "RepoHub UI Test", "GIT_AUTHOR_EMAIL": "ui-test@example.com",
+            "GIT_COMMITTER_NAME": "RepoHub UI Test", "GIT_COMMITTER_EMAIL": "ui-test@example.com",
+            "PATH": "/usr/bin:/bin",
+        ]
+        try process.run()
+        process.waitUntilExit()
+        guard process.terminationStatus == 0 else {
+            throw CocoaError(.executableLoad, userInfo: [NSLocalizedDescriptionKey: "git \(arguments) failed"])
+        }
+    }
+}

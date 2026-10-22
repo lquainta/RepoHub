@@ -25,11 +25,14 @@ struct RepoHubApp: App {
         }
         let container = Self.makeContainer(environment: environment)
         self.container = container
-        let api = RepoHubAPI(baseURL: AppPreferences.backendURL(environment))
+        let stubBackend = UITestSupport.usesStubBackend(environment)
+        let api: any APIClienting =
+            stubBackend ? UITestBackend() : RepoHubAPI(baseURL: AppPreferences.backendURL(environment))
         let account = AccountModel(
             api: api,
             credentials: UITestSupport.usesInMemoryStore(environment)
-                ? InMemoryCredentialStore() : KeychainCredentialStore()
+                ? InMemoryCredentialStore() : KeychainCredentialStore(),
+            workspace: stubBackend ? UITestWorkspace() : SystemWorkspace()
         )
         _account = State(initialValue: account)
         let gitHub = GitHubStatusModel(account: account, api: api)
@@ -120,7 +123,8 @@ struct RepoHubApp: App {
     /// The UI test fixture folder, if one was requested, scanned at launch.
     private static func launchFolders(environment: [String: String]) -> [URL] {
         do {
-            return try UITestSupport.makeFixtureFolder(environment).map { [$0] } ?? []
+            return try [UITestSupport.makeFixtureFolder(environment), UITestSupport.makeGitFixtures(environment)]
+                .compactMap(\.self)
         } catch {
             Logger(subsystem: "com.lquainta.RepoHub", category: "UITest")
                 .error("Could not create UI test fixture: \(error.localizedDescription, privacy: .public)")
