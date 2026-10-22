@@ -105,9 +105,11 @@ private struct DetailList: View {
                         Text(stash.date, format: .relative(presentation: .named)).foregroundStyle(.secondaryText)
                     } label: {
                         Text(stash.message)
-                        Text(verbatim: "stash@{\(stash.index)}").font(.caption.monospaced()).foregroundStyle(
-                            .secondaryText
-                        )
+                        // A git ref name, never translated.
+                        // swiftlint:disable:next no_verbatim_text
+                        Text(verbatim: "stash@{\(stash.index)}")
+                            .font(.caption.monospaced())
+                            .foregroundStyle(.secondaryText)
                     }
                 }
             }
