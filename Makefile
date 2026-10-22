@@ -94,6 +94,10 @@ test-integration: ## Backend tests against the docker-compose Postgres and Redis
 	TEST_DATABASE_URL=postgres://repohub:repohub@localhost:$${POSTGRES_PORT:-5432}/repohub_test \
 	TEST_REDIS_URL=redis://localhost:$${REDIS_PORT:-6379} $(MAKE) test-backend
 
+.PHONY: check-diagrams
+check-diagrams: ## Fail if an architecture diagram names a type that isn't in the code
+	scripts/check-diagrams.sh
+
 .PHONY: check-localizations
 check-localizations: generate ## Fail if any UI string has no Spanish translation
 	scripts/check-localizations.sh
