@@ -44,7 +44,7 @@ struct StaleBranchSheet: View {
         case .loading, .deleting:
             ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
         case .failed(let message):
-            ContentUnavailableView(
+            EmptyStateView(
                 "Couldn't Read Branches",
                 systemImage: "exclamationmark.triangle",
                 description: Text(message)
@@ -53,7 +53,7 @@ struct StaleBranchSheet: View {
             FinishedView(deleted: model.deleted, failures: model.failures)
         case .reviewing, .confirmingForce:
             if model.candidates.isEmpty {
-                ContentUnavailableView(
+                EmptyStateView(
                     "No Stale Branches",
                     systemImage: "checkmark.circle",
                     description: Text("Every branch is either active or not yet merged.")
@@ -64,13 +64,14 @@ struct StaleBranchSheet: View {
                         + "The current branch and \(model.report?.defaultBranch ?? "") are never deleted."
                 )
                 .font(.callout)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.secondaryText)
                 List(model.candidates, id: \.branch.name) { candidate in
                     Toggle(isOn: binding(for: candidate.branch.name)) {
                         CandidateRow(candidate: candidate)
                     }
                     .toggleStyle(.checkbox)
                 }
+                .accessibilityLabel("Branches to delete")
                 .accessibilityIdentifier("staleBranchList")
                 Toggle("Also delete the branches on their remote", isOn: $model.deleteRemote)
             }
@@ -80,11 +81,11 @@ struct StaleBranchSheet: View {
     @ViewBuilder private var footer: some View {
         HStack {
             if model.phase == .reviewing, !model.selectedUnmerged.isEmpty {
-                Label(
+                StatusLabel(
                     "\(model.selectedUnmerged.count) selected branches aren't merged",
-                    systemImage: "exclamationmark.triangle"
+                    systemImage: "exclamationmark.triangle",
+                    tint: .orange
                 )
-                .foregroundStyle(.orange)
                 .font(.callout)
             }
             Spacer()
@@ -124,17 +125,16 @@ private struct CandidateRow: View {
                 Text(candidate.branch.name).fontWeight(.medium)
                 Text(candidate.reasons.map(StatusText.description(of:)).joined(separator: " · "))
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.secondaryText)
             }
             Spacer()
             if !candidate.isMerged {
-                Text("Unmerged")
+                StatusLabel("Unmerged", systemImage: "exclamationmark.circle.fill", tint: .orange)
                     .font(.caption.bold())
-                    .foregroundStyle(.orange)
             }
             Text(candidate.branch.lastCommitDate, format: .relative(presentation: .named))
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.secondaryText)
         }
         .accessibilityElement(children: .combine)
     }
@@ -156,7 +156,7 @@ private struct FinishedView: View {
                     ForEach(failures.keys.sorted(), id: \.self) { name in
                         VStack(alignment: .leading) {
                             Label(name, systemImage: "xmark.circle")
-                            Text(failures[name] ?? "").font(.caption).foregroundStyle(.secondary)
+                            Text(failures[name] ?? "").font(.caption).foregroundStyle(.secondaryText)
                         }
                     }
                 }

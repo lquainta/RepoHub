@@ -117,31 +117,31 @@ private struct RepositoryList: View {
     var body: some View {
         let rows = model.visibleRows
         if model.folders.isEmpty {
-            ContentUnavailableView {
-                Label("No Folders", systemImage: "folder.badge.plus")
-            } description: {
-                Text("Add a folder and RepoHub will find the git repositories inside it.")
-            } actions: {
+            EmptyStateView(
+                "No Folders",
+                systemImage: "folder.badge.plus",
+                description: Text("Add a folder and RepoHub will find the git repositories inside it.")
+            ) {
                 Button("Add Folder…") { isImporting = true }
             }
             .accessibilityIdentifier("emptyState")
         } else if model.repositories.isEmpty && !model.isScanning {
-            ContentUnavailableView(
+            EmptyStateView(
                 "No Repositories Found",
                 systemImage: "magnifyingglass",
                 description: Text("None of your folders contain git repositories.")
             )
         } else if rows.isEmpty && model.filter.isActive {
-            ContentUnavailableView {
-                Label("No Matches", systemImage: "line.3.horizontal.decrease.circle")
-            } description: {
-                Text("No repositories here match your search and filters.")
-            } actions: {
+            EmptyStateView(
+                "No Matches",
+                systemImage: "line.3.horizontal.decrease.circle",
+                description: Text("No repositories here match your search and filters.")
+            ) {
                 Button("Clear Search and Filters") { model.filter = RepositoryFilter() }
             }
             .accessibilityIdentifier("noMatches")
         } else if rows.isEmpty, case .group(let name) = model.scope {
-            ContentUnavailableView(
+            EmptyStateView(
                 "\(name) Is Empty",
                 systemImage: "tag",
                 description: Text("Right-click a repository and choose Add to Group, or drag it here.")
