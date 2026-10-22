@@ -1,0 +1,62 @@
+# Publishes the DocC documentation for RepoHubCore and the backend to GitHub
+# Pages on every push to main (#56): https://lquainta.github.io/RepoHub/
+name: Docs
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - "**/*.docc/**"
+      - "Packages/RepoHubCore/Sources/**"
+      - "Backend/Sources/**"
+      - ".github/workflows/docs.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build documentation
+    runs-on: ubuntu-latest
+    container:
+      image: swift:6.4-noble
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: RepoHubCore (public API; DocC warnings fail the build)
+        run: |
+          mkdir -p site
+          swift package --package-path Packages/RepoHubCore --allow-writing-to-directory site/core \
+            generate-documentation --target RepoHubCore --warnings-as-errors \
+            --transform-for-static-hosting --hosting-base-path RepoHub/core --output-path site/core
+      - name: Backend (internal API, since it's an app)
+        run: |
+          swift package --package-path Backend --allow-writing-to-directory site/backend \
+            generate-documentation --target App --symbol-graph-minimum-access-level internal --warnings-as-errors \
+            --transform-for-static-hosting --hosting-base-path RepoHub/backend --output-path site/backend
+      - name: Landing page
+        run: cp docs/site/index.html site/index.html
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: site
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

@@ -27,6 +27,10 @@ All in Mermaid, rendered by GitHub, and named after the types in the code. `make
 | [Continuous deployment](sequences.md#continuous-deployment) | CI, release PR, deploy with migrations, smoke test, rollback |
 | [Database](database.md) | The ERD and every table |
 
+## Code documentation
+
+DocC documentation for [RepoHubCore](https://lquainta.github.io/RepoHub/core/documentation/repohubcore/) and the [backend](https://lquainta.github.io/RepoHub/backend/documentation/app/) is published to GitHub Pages from `main` (`.github/workflows/docs.yml`), with Getting Started and Architecture articles for each. Build it locally with `swift package --package-path Packages/RepoHubCore --disable-sandbox preview-documentation --target RepoHubCore`. Public declarations need doc comments (SwiftLint `missing_docs`), and DocC warnings, such as broken symbol links, fail the build.
+
 ## Decisions
 
 Why it's built this way is recorded in the [Architecture Decision Records](../adr/README.md):
