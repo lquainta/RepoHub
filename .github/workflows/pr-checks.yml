@@ -42,8 +42,10 @@ jobs:
   linked-issue:
     name: Linked issue
     runs-on: ubuntu-latest
-    # Bot PRs (Dependabot, release automation) are not tied to an issue
-    if: github.event.pull_request.user.type != 'Bot'
+    # Bot PRs (Dependabot) and release PRs are not tied to an issue
+    if: >-
+      github.event.pull_request.user.type != 'Bot'
+      && !startsWith(github.event.pull_request.head.ref, 'release-please--')
     steps:
       - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:

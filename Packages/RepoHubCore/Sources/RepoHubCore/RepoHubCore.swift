@@ -4,5 +4,5 @@
 /// Foundation APIs that are available in swift-corelibs-foundation.
 public enum RepoHubCore {
     /// Semantic version of the core package.
-    public static let version = "0.1.0"
+    public static let version = "0.1.0"  // x-release-please-version
 }
