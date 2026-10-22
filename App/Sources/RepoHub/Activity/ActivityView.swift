@@ -39,7 +39,7 @@ struct ActivityView: View {
     @ViewBuilder private var content: some View {
         let scope = self.scope
         if !model.isSignedIn {
-            ContentUnavailableView(
+            EmptyStateView(
                 "Sign In to See Activity",
                 systemImage: "chart.bar.xaxis",
                 description: Text(
@@ -47,13 +47,13 @@ struct ActivityView: View {
                 )
             )
         } else if let message = model.errorMessage, !model.hasLoaded {
-            ContentUnavailableView(
+            EmptyStateView(
                 "Couldn't Load Activity",
                 systemImage: "exclamationmark.triangle",
                 description: Text(message)
             )
         } else if model.hasLoaded && model.isEmpty(in: scope) {
-            ContentUnavailableView(
+            EmptyStateView(
                 "No Activity Yet",
                 systemImage: "chart.bar.xaxis",
                 description: Text(
