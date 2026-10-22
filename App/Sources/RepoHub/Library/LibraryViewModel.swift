@@ -86,6 +86,7 @@ final class LibraryViewModel {
         }
         await refreshStatuses()
         gitHub?.startPolling { [weak self] in self?.gitHubRequests ?? [] }
+        gitHub?.startLiveUpdates { [weak self] in self?.gitHubRequests ?? [] }
     }
 
     /// Repositories with a GitHub remote, and the branch each has checked out.
