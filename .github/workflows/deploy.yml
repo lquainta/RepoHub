@@ -1,0 +1,78 @@
+# Continuous deployment (#43): every push to main whose CI run succeeds is
+# deployed to Fly.io. A failing CI run never deploys.
+#
+# 1. Fly builds Backend/Dockerfile and runs `migrate --yes` as the release
+#    command before any traffic moves (fly.toml). A failed migration stops the
+#    deploy and the old version keeps serving.
+# 2. A smoke test checks /health reports this commit and /ready reports the
+#    database and Redis as up.
+# 3. If the smoke test fails, the previous image is redeployed and the job fails.
+#
+# FLY_API_TOKEN is a deploy token scoped to the repohub-backend app, stored in
+# the `production` environment (Settings > Environments), never in the repository.
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to Fly.io
+    # Only green CI runs for pushes to main (not PRs from forks named main).
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://repohub-backend.fly.dev
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      APP: repohub-backend
+      URL: https://repohub-backend.fly.dev
+      SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.SHA }}
+      - uses: superfly/flyctl-actions/setup-flyctl@fc53c09e1bc3be6f54706524e3b82c4f462f77be # 1.5
+      - name: Remember the running image for rollback
+        id: previous
+        run: |
+          image=$(flyctl image show --app "$APP" --json | jq -r '.[0] | "\(.Registry)/\(.Repository):\(.Tag)"' || true)
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+          echo "Running before deploy: \`$image\`" >> "$GITHUB_STEP_SUMMARY"
+      - name: Deploy (runs migrations first)
+        run: flyctl deploy --app "$APP" --remote-only --ha=false --build-arg "BUILD_COMMIT=$SHA" --wait-timeout 300
+      - name: Smoke test
+        id: smoke
+        run: |
+          for attempt in $(seq 1 20); do
+            health=$(curl -fsS "$URL/health" || true)
+            ready=$(curl -fsS "$URL/ready" || true)
+            if echo "$health" | jq -e --arg sha "$SHA" '.status == "ok" and .commit == $sha' >/dev/null 2>&1 \
+              && echo "$ready" | jq -e '.status == "ready"' >/dev/null 2>&1; then
+              echo "Smoke test passed on attempt $attempt"
+              echo "$ready" | jq -r '"Deployed `\(env.SHA)`: database \(.checks.database.status), Redis \(.checks.cache.status)"' >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            sleep 6
+          done
+          echo "::error::Smoke test failed. /health: $health /ready: $ready"
+          exit 1
+      - name: Roll back to the previous image
+        if: failure() && steps.smoke.outcome == 'failure' && steps.previous.outputs.image != ''
+        run: |
+          flyctl deploy --app "$APP" --image "${{ steps.previous.outputs.image }}" --ha=false --wait-timeout 300
+          echo "Rolled back to \`${{ steps.previous.outputs.image }}\`" >> "$GITHUB_STEP_SUMMARY"
