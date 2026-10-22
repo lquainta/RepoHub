@@ -67,7 +67,7 @@ struct GroupStoreTests {
 @MainActor
 @Suite("Schema migration")
 struct SchemaMigrationTests {
-    @Test("A version 1 store opens with version 2: folders and repositories kept, no groups")
+    @Test("A version 1 store opens with the current version: folders and repositories kept, no groups")
     func migratesV1() throws {
         let directory = FileManager.default.temporaryDirectory
             .appending(path: "repohub-migration-\(UUID().uuidString)", directoryHint: .isDirectory)
@@ -94,5 +94,35 @@ struct SchemaMigrationTests {
         let group = try store.createGroup(named: "Work")
         try store.add(["/dev/api"], to: group)
         #expect(group.repositories.count == 1)
+    }
+
+    @Test("A version 2 store opens with version 3: groups and members kept, not yet synced")
+    func migratesV2() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appending(path: "repohub-migration-\(UUID().uuidString)", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appending(path: "RepoHub.store")
+
+        do {
+            let legacySchema = Schema(versionedSchema: SchemaV2.self)
+            let legacy = try ModelContainer(
+                for: legacySchema,
+                configurations: ModelConfiguration(schema: legacySchema, url: url)
+            )
+            let folder = SchemaV2.ScanFolder(path: "/dev")
+            let repository = SchemaV2.TrackedRepository(path: "/dev/api", name: "api", folder: folder)
+            let group = SchemaV2.RepoGroup(name: "Work")
+            legacy.mainContext.insert(folder)
+            legacy.mainContext.insert(repository)
+            legacy.mainContext.insert(group)
+            group.repositories.append(repository)
+            try legacy.mainContext.save()
+        }
+
+        let store = LibraryStore(container: try Persistence.makeContainer(at: url))
+        let group = try #require(try store.groups().first)
+        #expect(group.name == "Work" && group.repositories.map(\.name) == ["api"])
+        #expect(group.syncID == nil && group.modifiedAt == nil && group.remoteOnlyMembers.isEmpty)
     }
 }

@@ -34,13 +34,14 @@ struct RepoHubApp: App {
         gitHub.onUpdate = { _, new in
             Task { await notifier.update(new) }
         }
-        _library = State(
-            initialValue: LibraryViewModel(
-                store: LibraryStore(container: container),
-                autoRefresh: AutoRefreshController(),
-                gitHub: gitHub
-            )
-        )
+        let store = LibraryStore(container: container)
+        let library = LibraryViewModel(store: store, autoRefresh: AutoRefreshController(), gitHub: gitHub)
+        let sync = SyncModel(account: account, api: api, store: store) { [weak library] repository in
+            library?.remoteIdentity(of: repository)
+        }
+        sync.onApplied = { [weak library] in library?.load() }
+        library.sync = sync
+        _library = State(initialValue: library)
         launchFolders = Self.launchFolders(environment: environment)
     }
 
@@ -49,7 +50,10 @@ struct RepoHubApp: App {
             LibraryView(model: library)
                 .task { await library.start(addingFolders: launchFolders) }
                 .task { await account.restore() }
-                .task(id: account.user?.id) { await library.refreshGitHub() }
+                .task(id: account.user?.id) {
+                    await library.refreshGitHub()
+                    await library.sync?.sync()
+                }
         }
         .modelContainer(container)
         .defaultLaunchBehavior(menuBarOnly && showMenuBarExtra ? .suppressed : .presented)

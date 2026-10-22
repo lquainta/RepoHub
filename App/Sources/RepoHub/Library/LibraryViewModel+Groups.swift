@@ -12,6 +12,7 @@ extension LibraryViewModel {
                 try store.add(paths, to: group)
             }
             load()
+            sync?.scheduleSync()
             return true
         } catch {
             report(error, message: error.localizedDescription)
@@ -29,6 +30,7 @@ extension LibraryViewModel {
             if scope == .group(name) {
                 scope = .group(group.name)
             }
+            sync?.scheduleSync()
         } catch {
             report(error, message: error.localizedDescription)
         }
@@ -41,7 +43,9 @@ extension LibraryViewModel {
             return
         }
         do {
-            try store.deleteGroup(group)
+            if let syncID = try store.deleteGroup(group) {
+                sync?.recordDeletion(of: syncID)
+            }
             if scope == .group(name) {
                 scope = .all
             }
@@ -58,6 +62,7 @@ extension LibraryViewModel {
         }
         do {
             try store.add(paths, to: group)
+            sync?.scheduleSync()
         } catch {
             report(error, message: String(localized: "Couldn't add to the group \(name)."))
         }
@@ -71,6 +76,7 @@ extension LibraryViewModel {
         }
         do {
             try store.remove(paths, from: group)
+            sync?.scheduleSync()
         } catch {
             report(error, message: String(localized: "Couldn't remove from the group \(name)."))
         }
