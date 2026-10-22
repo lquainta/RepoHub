@@ -1,0 +1,5 @@
+# Server stubs for the backend, generated at build time from openapi/openapi.yaml.
+generate:
+  - types
+  - server
+accessModifier: package

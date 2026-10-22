@@ -1,0 +1,67 @@
+openapi: 3.1.0
+info:
+  title: RepoHub API
+  version: 0.1.0
+  summary: Backend for the RepoHub macOS app.
+  description: |
+    The RepoHub backend adds GitHub sign-in, pull request and CI data, and sync
+    across Macs to the RepoHub app. Local repository status never leaves the Mac.
+
+    This document is the source of truth for the API ([ADR 0008](https://github.com/lquainta/RepoHub/blob/main/docs/adr/0008-design-the-api-spec-first.md)):
+    the backend's route handlers and the app's client are generated from it,
+    so a change here that the code doesn't follow fails to compile.
+
+    Errors use Vapor's format: `{"error": true, "reason": "..."}`.
+  license:
+    name: MIT
+    url: https://github.com/lquainta/RepoHub/blob/main/LICENSE
+  contact:
+    url: https://github.com/lquainta/RepoHub
+servers:
+  - url: https://repohub-backend.fly.dev
+    description: Production
+  - url: http://localhost:8080
+    description: Local development (`make up` or `make run-backend`)
+tags:
+  - name: Health
+    description: Liveness and readiness checks for monitoring and deploys.
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      tags: [Health]
+      summary: Liveness check
+      description: |
+        Returns `ok` while the process is serving requests. Doesn't touch the
+        database or Redis, so it stays up even when they're down; use it to
+        decide whether to restart the process.
+      security: []
+      responses:
+        "200":
+          description: The server is running.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+              example:
+                status: ok
+                version: 0.1.0
+                commit: 3f89e9c
+components:
+  schemas:
+    Health:
+      type: object
+      description: The running build.
+      required: [status, version, commit]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+        version:
+          type: string
+          description: RepoHubCore version.
+          example: 0.1.0
+        commit:
+          type: string
+          description: Git commit of the running build (`BUILD_COMMIT`), or `unknown`.
+          example: 3f89e9c

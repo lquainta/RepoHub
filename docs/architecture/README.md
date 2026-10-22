@@ -21,5 +21,5 @@ Why it's built this way is recorded in the [Architecture Decision Records](../ad
 - Structure: [monorepo](../adr/0002-use-a-monorepo.md), [SwiftUI + Vapor](../adr/0003-use-swiftui-and-vapor.md)
 - Git access: [git CLI instead of libgit2](../adr/0004-run-the-git-cli.md)
 - Data: [PostgreSQL](../adr/0005-use-postgresql.md), [Redis cache](../adr/0006-cache-github-responses-in-redis.md)
-- API: [spec-first OpenAPI](../adr/0008-design-the-api-spec-first.md)
+- API: [spec-first OpenAPI](../adr/0008-design-the-api-spec-first.md). The spec and workflow are in [`openapi/`](../../openapi/README.md), and the running backend serves its reference at `/docs`.
 - Operations: [Fly.io hosting](../adr/0007-host-on-fly-io.md), [ad-hoc signed distribution](../adr/0009-distribute-ad-hoc-signed-builds.md)

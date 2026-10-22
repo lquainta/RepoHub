@@ -21,6 +21,8 @@ settings:
 packages:
   RepoHubCore:
     path: ../Packages/RepoHubCore
+  RepoHubAPIClient:
+    path: ../Packages/RepoHubAPIClient
 targets:
   RepoHub:
     type: application
@@ -29,6 +31,7 @@ targets:
       - Sources/RepoHub
     dependencies:
       - package: RepoHubCore
+      - package: RepoHubAPIClient
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.lquainta.RepoHub

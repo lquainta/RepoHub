@@ -1,14 +1,19 @@
 # RepoHub developer tasks. Run `make help` for a list.
 
 CORE_DIR    := Packages/RepoHubCore
+CLIENT_DIR  := Packages/RepoHubAPIClient
 BACKEND_DIR := Backend
 APP_DIR     := App
 PROJECT     := $(APP_DIR)/RepoHub.xcodeproj
 SCHEME      := RepoHub
 DESTINATION := platform=macOS,arch=$(shell uname -m)
 FORMAT_PATHS := App/Sources App/Tests $(CORE_DIR)/Package.swift $(CORE_DIR)/Sources $(CORE_DIR)/Tests \
+                $(CLIENT_DIR)/Package.swift $(CLIENT_DIR)/Sources $(CLIENT_DIR)/Tests \
                 $(BACKEND_DIR)/Package.swift $(BACKEND_DIR)/Sources $(BACKEND_DIR)/Tests
-XCODEBUILD  := xcodebuild -project $(PROJECT) -scheme $(SCHEME) -destination '$(DESTINATION)' -quiet
+# -skipPackagePluginValidation: the API client package runs the OpenAPI generator build plugin.
+XCODEBUILD  := xcodebuild -project $(PROJECT) -scheme $(SCHEME) -destination '$(DESTINATION)' -quiet -skipPackagePluginValidation
+
+REDOCLY_VERSION := 2.54.2
 
 .DEFAULT_GOAL := help
 
@@ -24,6 +29,7 @@ bootstrap: ## Check required tools, resolve dependencies, and generate the Xcode
 	@command -v xcodebuild >/dev/null || { echo "Xcode not found: install it from the App Store"; exit 1; }
 	$(MAKE) hooks
 	swift package resolve --package-path $(CORE_DIR)
+	swift package resolve --package-path $(CLIENT_DIR)
 	swift package resolve --package-path $(BACKEND_DIR)
 	$(MAKE) generate
 
@@ -52,11 +58,14 @@ BUILD_NUMBER ?= $(shell git rev-list --count HEAD 2>/dev/null || echo 1)
 build-app: generate ## Build the macOS app
 	$(XCODEBUILD) build CURRENT_PROJECT_VERSION=$(BUILD_NUMBER)
 
-.PHONY: test test-core test-backend test-app test-ui
-test: test-core test-backend test-app ## Run all unit and integration tests (UI tests: make test-ui)
+.PHONY: test test-core test-client test-backend test-app test-ui
+test: test-core test-client test-backend test-app ## Run all unit and integration tests (UI tests: make test-ui)
 
 test-core: ## Test the RepoHubCore package
 	swift test --package-path $(CORE_DIR)
+
+test-client: ## Test the generated API client package
+	swift test --package-path $(CLIENT_DIR)
 
 test-backend: ## Test the Vapor backend
 	swift test --package-path $(BACKEND_DIR)
@@ -98,6 +107,10 @@ secrets-scan: ## Scan git history and the working tree for secrets with Gitleaks
 .PHONY: check-env
 check-env: ## Verify every backend environment variable is documented in .env.sample
 	scripts/check-env-sample.sh
+
+.PHONY: lint-openapi
+lint-openapi: ## Lint openapi/openapi.yaml with Redocly
+	npx --yes @redocly/cli@$(REDOCLY_VERSION) lint openapi/openapi.yaml --config openapi/redocly.yaml
 
 .PHONY: format format-check
 format: ## Format all Swift sources in place with swift-format

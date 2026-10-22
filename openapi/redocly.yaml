@@ -1,0 +1,12 @@
+# Linting rules for openapi.yaml, run by the OpenAPI CI job:
+#   npx @redocly/cli lint openapi/openapi.yaml --config openapi/redocly.yaml
+# `recommended-strict` makes every finding an error, so warnings fail CI.
+extends:
+  - recommended-strict
+rules:
+  # Every operation must say who may call it: `security: []` for public endpoints.
+  security-defined: error
+  # The localhost server is listed on purpose, for trying the API locally from /docs.
+  no-server-example.com: off
+  # Error responses are added per operation as endpoints gain them (#49).
+  operation-4xx-response: off
