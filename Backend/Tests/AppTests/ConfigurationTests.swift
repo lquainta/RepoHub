@@ -123,4 +123,18 @@ struct ConfigurationTests {
     func disposableTestDatabase(url: String, accepted: Bool) {
         #expect(TestDatabase.isDisposable(url) == accepted)
     }
+
+    @Test("REDIS_URL is required in production, optional elsewhere, and must be a redis URL")
+    func redisURL() throws {
+        let base = ["DATABASE_URL": databaseURL]
+        #expect(try AppConfig(reader: reader(base), environment: .development).redisURL == nil)
+        #expect(throws: ConfigurationError.missing(key: "REDIS_URL")) {
+            try AppConfig(reader: reader(base), environment: .production)
+        }
+        let withRedis = base.merging(["REDIS_URL": "rediss://default:pw@cache.example.com:6379"]) { _, new in new }
+        #expect(try AppConfig(reader: reader(withRedis), environment: .production).redisURL != nil)
+        #expect(throws: ConfigurationError.self) {
+            try AppConfig(reader: reader(base.merging(["REDIS_URL": "http://x"]) { _, new in new }))
+        }
+    }
 }

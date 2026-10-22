@@ -9,11 +9,18 @@ struct AppConfig: Sendable {
     let buildCommit: String
     /// PostgreSQL connection settings.
     let database: DatabaseConfig
+    /// Redis for the GitHub response cache. Required in production; elsewhere
+    /// an in-memory cache is used when it's unset.
+    let redisURL: String?
 
     /// Loads configuration using `reader`.
     init(reader: EnvironmentReader = EnvironmentReader(), environment: Environment = .development) throws {
         buildCommit = reader.optional("BUILD_COMMIT") ?? "unknown"
         database = try DatabaseConfig(reader: reader, environment: environment)
+        redisURL = environment == .production ? try reader.required("REDIS_URL") : reader.optional("REDIS_URL")
+        if let redisURL, URL(string: redisURL)?.scheme?.hasPrefix("redis") != true {
+            throw ConfigurationError.invalid(key: "REDIS_URL", expected: "a redis:// or rediss:// URL")
+        }
     }
 }
 

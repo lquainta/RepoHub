@@ -5,6 +5,7 @@ import Vapor
 func configure(_ app: Application, reader: EnvironmentReader = EnvironmentReader()) async throws {
     app.config = try AppConfig(reader: reader, environment: app.environment)
     app.configureDatabase(app.config.database)
+    try app.configureCache(redisURL: app.config.redisURL)
     app.asyncCommands.use(SeedCommand(), as: "seed")
     try routes(app)
 }
