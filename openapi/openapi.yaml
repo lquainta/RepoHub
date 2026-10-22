@@ -54,6 +54,8 @@ tags:
     description: Pull request and CI status for the user's repositories.
   - name: Sync
     description: Groups and settings synced between a user's Macs.
+  - name: Activity
+    description: Daily activity history for the chart.
   - name: Webhooks
     description: Events from GitHub.
 paths:
@@ -399,6 +401,66 @@ paths:
       responses:
         "204":
           description: Deleted (or already deleted, or not found).
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /activity:
+    get:
+      operationId: getActivity
+      tags: [Activity]
+      summary: Daily activity for the user's repositories
+      description: |
+        Commits per day and whether each repository had uncommitted changes,
+        for every repository in the user's workspace with snapshots in the
+        last `days` days (ending today, UTC). Days without a snapshot are
+        omitted; the app shows them as zero.
+      parameters:
+        - name: days
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 365
+            default: 30
+      responses:
+        "200":
+          description: The activity, one series per repository.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityHistory"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /activity/snapshots:
+    post:
+      operationId: uploadSnapshots
+      tags: [Activity]
+      summary: Upload daily snapshots
+      description: |
+        Stores one snapshot per repository and day, replacing an earlier
+        upload of the same day. `dirty`, `ahead`, and `behind` describe the
+        moment of capture, so the app sends them only for today; when they're
+        absent, a stored value is kept. Repositories are identified by their
+        remote identity and added to the workspace as needed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SnapshotUpload"
+      responses:
+        "204":
+          description: Stored.
+        "400":
+          description: The upload is invalid.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "429":
@@ -808,3 +870,71 @@ components:
           type: string
           format: date-time
           description: Set when the group was deleted.
+    Snapshot:
+      type: object
+      required: [repository, day, commits]
+      properties:
+        repository:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: The remote identity, such as `github.com/owner/repo`.
+        day:
+          type: string
+          pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+          description: The calendar day on the Mac, `YYYY-MM-DD`.
+          example: "2026-10-21"
+        commits:
+          type: integer
+          minimum: 0
+        dirty:
+          type: boolean
+        ahead:
+          type: integer
+          minimum: 0
+        behind:
+          type: integer
+          minimum: 0
+    SnapshotUpload:
+      type: object
+      required: [snapshots]
+      properties:
+        snapshots:
+          type: array
+          minItems: 1
+          maxItems: 5000
+          items:
+            $ref: "#/components/schemas/Snapshot"
+    ActivityHistory:
+      type: object
+      required: [repositories]
+      properties:
+        repositories:
+          type: array
+          items:
+            $ref: "#/components/schemas/RepositoryActivity"
+    RepositoryActivity:
+      type: object
+      required: [repository, name, days]
+      properties:
+        repository:
+          type: string
+          description: The remote identity.
+        name:
+          type: string
+        days:
+          type: array
+          description: Oldest first.
+          items:
+            $ref: "#/components/schemas/ActivityDay"
+    ActivityDay:
+      type: object
+      required: [day, commits, dirty]
+      properties:
+        day:
+          type: string
+          example: "2026-10-21"
+        commits:
+          type: integer
+        dirty:
+          type: boolean
