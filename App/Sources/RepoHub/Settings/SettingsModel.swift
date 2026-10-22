@@ -52,6 +52,12 @@ final class SettingsModel {
         launchAtLogin = loginItem.isEnabled
         notifyCIFailures = AppPreferences.notifyCIFailures(defaults)
         notifyReviewRequests = AppPreferences.notifyReviewRequests(defaults)
+        sendCrashReports = defaults.bool(forKey: AppPreferences.sendCrashReportsKey)
+    }
+
+    /// Whether crash reports are sent; takes effect at the next launch.
+    var sendCrashReports: Bool {
+        didSet { defaults.set(sendCrashReports, forKey: AppPreferences.sendCrashReportsKey) }
     }
 
     /// Whether failing CI on a checked-out branch posts a notification.
