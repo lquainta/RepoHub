@@ -71,6 +71,14 @@ struct DashboardTable<ExtraMenu: View>: View {
             }
             .width(min: 90, ideal: 120)
             .customizationID(DashboardColumn.lastCommit.rawValue)
+
+            TableColumn("GitHub", value: \.gitHubSortKey) { row in
+                if let gitHub = row.gitHub, gitHub.error == nil {
+                    GitHubBadges(status: gitHub, branch: row.currentBranch)
+                }
+            }
+            .width(min: 70, ideal: 100)
+            .customizationID(DashboardColumn.gitHub.rawValue)
         } rows: {
             ForEach(rows.sorted(using: sortOrder)) { row in
                 // Dragging a row onto a sidebar group adds it to the group.
