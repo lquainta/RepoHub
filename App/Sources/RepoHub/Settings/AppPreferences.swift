@@ -38,6 +38,9 @@ enum AppPreferences {
         defaults.object(forKey: notifyReviewRequestsKey) as? Bool ?? true
     }
 
+    /// Whether crashes and errors are sent to the developer's Sentry (off by default).
+    static let sendCrashReportsKey = "sendCrashReports"
+
     /// Visual Studio Code.
     static let defaultEditorBundleID = "com.microsoft.VSCode"
     /// Terminal.app.
