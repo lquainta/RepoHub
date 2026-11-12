@@ -8,7 +8,7 @@ options:
 settings:
   base:
     SWIFT_VERSION: "6.0"
-    MARKETING_VERSION: "0.1.0" # x-release-please-version
+    MARKETING_VERSION: "0.2.0" # x-release-please-version
     CURRENT_PROJECT_VERSION: "1"
     # Ad-hoc signing: distributed outside the Mac App Store without a
     # Developer ID (see #44).
