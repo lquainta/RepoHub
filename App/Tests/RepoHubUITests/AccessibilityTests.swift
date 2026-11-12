@@ -24,6 +24,11 @@ final class AccessibilityTests: XCTestCase {
     /// Audits the app, failing on every issue except the framework-owned ones
     /// in ``isFrameworkIssue(_:)`` (documented in docs/accessibility.md).
     private func audit(_ screen: String) throws {
+        // On CI the app can launch behind other windows, and macOS dims an
+        // inactive app's text and window buttons, which fails contrast and
+        // parent/child checks that pass when the app is in front.
+        app.activate()
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 10), "\(screen): app isn't frontmost")
         // A row under the pointer is highlighted, which changes its contrast;
         // park the pointer on the frontmost window's title bar.
         app.windows.element(boundBy: 0).coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.01)).hover()
@@ -32,7 +37,9 @@ final class AccessibilityTests: XCTestCase {
                 return true
             }
             let element =
-                issue.element.map { "'\($0.identifier)' \(String(describing: $0.value)) at \($0.frame)" } ?? "none"
+                issue.element.map {
+                    "\($0.elementType.rawValue) '\($0.identifier)' \(String(describing: $0.value)) at \($0.frame)"
+                } ?? "none"
             XCTFail("\(screen): \(issue.compactDescription) [\(issue.auditType.rawValue)] on \(element)")
             return true
         }
