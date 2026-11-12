@@ -109,7 +109,9 @@ struct LibraryView: View {
             Text(model.actions.failures.map { "\($0.repository): \($0.message)" }.joined(separator: "\n"))
         }
         .modifier(GroupNameAlert(prompt: $groupPrompt, model: model))
-        .onGeometryChange(for: Bool.self) { $0.size.width < Self.compactWidth } action: { compact in
+        .onGeometryChange(for: Bool.self) {
+            $0.size.width < Self.compactWidth
+        } action: { compact in
             adaptSidebar(compact: compact)
         }
         // The dashboard and details side by side, at their minimum widths.

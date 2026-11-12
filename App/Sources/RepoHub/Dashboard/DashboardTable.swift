@@ -123,7 +123,11 @@ struct DashboardTable<ExtraMenu: View>: View {
                 savedSort = sort
             }
         }
-        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
+        .onGeometryChange(for: CGFloat.self) {
+            $0.size.width
+        } action: {
+            width = $0
+        }
         .accessibilityIdentifier("repositoryTable")
     }
 }
