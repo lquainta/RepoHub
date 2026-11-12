@@ -32,7 +32,8 @@ final class FlowTests: XCTestCase {
     }
 
     /// Any element in `container` whose label or value contains `text`
-    /// (SwiftUI often combines a row's texts into one value).
+    /// (SwiftUI often combines a row's texts into one). Keep `container` small:
+    /// querying the whole app's tree times out on CI.
     private func element(in container: XCUIElement, containing text: String) -> XCUIElement {
         container.descendants(matching: .any)
             .matching(NSPredicate(format: "label CONTAINS %@ OR value CONTAINS %@", text, text))
@@ -48,12 +49,11 @@ final class FlowTests: XCTestCase {
 
     func testAddingAFolderListsItsRepositories() {
         waitForRepositories()
-        // Each row shows the repository's path inside the scanned folder.
+        // Each row shows the repository's path inside the scanned folder. The
+        // row's texts are combined into one accessibility label (its value is
+        // the table cell's, not ours).
         let row = element("repository-clean")
-        XCTAssertTrue(
-            (row.value as? String)?.contains("repohub-ui-git") == true,
-            "Row: \(String(describing: row.value))"
-        )
+        XCTAssertTrue(row.label.contains("repohub-ui-git"), "Row label: \(row.label)")
     }
 
     func testFilteringByUncommittedChangesShowsOnlyDirtyRepositories() {
@@ -93,7 +93,8 @@ final class FlowTests: XCTestCase {
         XCTAssertTrue(element(in: list, containing: "old-feature").waitForExistence(timeout: 5))
         app.buttons["Delete 1 Branches"].click()
 
-        XCTAssertTrue(element(in: app, containing: "Deleted (1)").waitForExistence(timeout: 10))
+        let deleted = element("deletedBranchList")
+        XCTAssertTrue(element(in: deleted, containing: "Deleted (1)").waitForExistence(timeout: 10))
         app.buttons["Done"].click()
     }
 
@@ -108,7 +109,7 @@ final class FlowTests: XCTestCase {
 
         let user = element("signedInUser")
         XCTAssertTrue(user.waitForExistence(timeout: 10))
-        XCTAssertTrue(element(in: app, containing: "octocat").waitForExistence(timeout: 5))
+        XCTAssertTrue(element(in: user, containing: "octocat").waitForExistence(timeout: 5))
 
         app.buttons["Sign Out"].click()
         XCTAssertTrue(element("signIn").waitForExistence(timeout: 10))
