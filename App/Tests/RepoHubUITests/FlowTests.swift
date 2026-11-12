@@ -109,9 +109,11 @@ final class FlowTests: XCTestCase {
 
         let user = element("signedInUser")
         XCTAssertTrue(user.waitForExistence(timeout: 10))
-        // The identifier marks only LabeledContent's label, so look for the
-        // login in the Settings window.
-        XCTAssertTrue(element(in: settings, containing: "octocat").waitForExistence(timeout: 5))
+        // Look the login up by identifier: searching for its text reads every
+        // element's label and value, which times out on CI.
+        let login = element("signedInLogin")
+        XCTAssertTrue(login.waitForExistence(timeout: 5))
+        XCTAssertEqual((login.value as? String) ?? login.label, "octocat")
 
         app.buttons["Sign Out"].click()
         XCTAssertTrue(element("signIn").waitForExistence(timeout: 10))
