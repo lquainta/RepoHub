@@ -36,4 +36,4 @@ RepoHub is a student project under active development. Only the latest release a
   - TLS is required to the database in production.
   - Secrets come only from the environment or the hosting provider's secret store, never the repository (see [docs/configuration.md](docs/configuration.md)).
   - Gitleaks and GitHub secret scanning run on every push.
-- **Dependencies:** Dependabot keeps them up to date, and CodeQL scans the code.
+- **Dependencies:** Dependabot keeps them up to date, and CodeQL scans the code. CodeQL results inside dependencies (`**/.build/**`) are dropped before upload: Dependabot covers those packages, and we can't change their code.
