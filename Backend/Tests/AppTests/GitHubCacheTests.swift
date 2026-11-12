@@ -5,8 +5,8 @@ import VaporTesting
 
 @testable import App
 
-/// Returns canned GitHub responses and records requests.
-private actor FakeGitHubAPI: GitHubAPI {
+/// Returns canned GitHub responses and records requests. Unknown paths are 404s.
+actor FakeGitHubAPI: GitHubAPI {
     struct Call: Equatable {
         var path: String
         var etag: String?
@@ -14,6 +14,15 @@ private actor FakeGitHubAPI: GitHubAPI {
 
     private(set) var calls: [Call] = []
     var responses: [String: Result<GitHubResponse, GitHubError>] = [:]
+    /// How long each request takes.
+    private let delay: Duration
+    private var running = 0
+    /// The most requests that were ever running at once.
+    private(set) var peakConcurrency = 0
+
+    init(delay: Duration = .zero) {
+        self.delay = delay
+    }
 
     func respond(to path: String, with result: Result<GitHubResponse, GitHubError>) {
         responses[path] = result
@@ -21,6 +30,12 @@ private actor FakeGitHubAPI: GitHubAPI {
 
     func get(_ path: String, token: String, etag: String?) async throws -> GitHubResponse {
         calls.append(Call(path: path, etag: etag))
+        running += 1
+        peakConcurrency = max(peakConcurrency, running)
+        defer { running -= 1 }
+        if delay > .zero {
+            try await Task.sleep(for: delay)
+        }
         guard let result = responses[path] else {
             throw GitHubError.notFound
         }

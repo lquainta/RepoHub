@@ -15,6 +15,31 @@ struct DashboardRow: Identifiable, Equatable {
     let state: RepositoryStatusState?
     /// Remote and stale-branch counts, or `nil` if unknown.
     var facts: RepositoryFacts?
+    /// Pull requests and CI from GitHub, or `nil` when signed out or not on GitHub.
+    var gitHub: GitHubRepositoryStatus?
+
+    /// The checked-out branch, or `nil` for a detached HEAD or unknown status.
+    var currentBranch: String? {
+        switch status?.head {
+        case .branch(let name), .unborn(let name): name
+        case .detached, nil: nil
+        }
+    }
+
+    /// Higher needs more attention: failing CI, then review requests, then
+    /// running CI, then other GitHub repositories, then the rest.
+    var gitHubSortKey: Int {
+        guard let gitHub, gitHub.error == nil else {
+            return -1
+        }
+        if gitHub.checks?.state == .failure {
+            return 3
+        }
+        if !gitHub.reviewRequests.isEmpty {
+            return 2
+        }
+        return gitHub.checks?.state == .pending ? 1 : 0
+    }
 
     /// The status, if it was read successfully.
     var status: RepoStatus? {
@@ -62,7 +87,7 @@ struct DashboardRow: Identifiable, Equatable {
 
 /// A dashboard column that can be sorted.
 enum DashboardColumn: String, CaseIterable {
-    case name, branch, changes, sync, stashes, lastCommit
+    case name, branch, changes, sync, stashes, lastCommit, gitHub
 
     /// The comparator the table uses for this column.
     func comparator(order: SortOrder) -> KeyPathComparator<DashboardRow> {
@@ -73,6 +98,7 @@ enum DashboardColumn: String, CaseIterable {
         case .sync: KeyPathComparator(\.syncSortKey, order: order)
         case .stashes: KeyPathComparator(\.stashSortKey, order: order)
         case .lastCommit: KeyPathComparator(\.lastCommitSortKey, order: order)
+        case .gitHub: KeyPathComparator(\.gitHubSortKey, order: order)
         }
     }
 

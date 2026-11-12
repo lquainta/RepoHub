@@ -50,6 +50,8 @@ tags:
     description: GitHub sign-in and sessions.
   - name: Account
     description: The signed-in user.
+  - name: GitHub
+    description: Pull request and CI status for the user's repositories.
   - name: Webhooks
     description: Events from GitHub.
 paths:
@@ -210,6 +212,46 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/UserProfile"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /github/status:
+    post:
+      operationId: getRepositoryStatuses
+      tags: [GitHub]
+      summary: Pull requests and CI for a batch of repositories
+      description: |
+        For each repository: its open pull requests (marking the ones that
+        request the user's review) and the combined status of the check runs
+        on `branch`, if given.
+
+        Responses come from a per-user Redis cache (pull requests for 60
+        seconds, check runs for 30) and are revalidated with ETags, so
+        polling doesn't use up the user's GitHub rate limit. Webhooks clear a
+        repository's cache when its pull requests or checks change.
+
+        A repository that fails (for example, one the user can't see) is
+        returned with an `error`; the others are unaffected.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RepositoryStatusRequest"
+      responses:
+        "200":
+          description: One result per requested repository, in request order.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RepositoryStatusList"
+        "400":
+          description: The request is invalid.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "429":
@@ -446,3 +488,104 @@ components:
         reason:
           type: string
           description: A human-readable explanation. Never contains secrets.
+    RepositoryStatusRequest:
+      type: object
+      required: [repositories]
+      properties:
+        repositories:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/RepositoryReference"
+    RepositoryReference:
+      type: object
+      required: [owner, name]
+      properties:
+        owner:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: octocat
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: hello-world
+        branch:
+          type: string
+          description: The local branch whose check runs to report. Omit for a detached HEAD.
+          minLength: 1
+          maxLength: 255
+          example: main
+    RepositoryStatusList:
+      type: object
+      required: [repositories]
+      properties:
+        repositories:
+          type: array
+          items:
+            $ref: "#/components/schemas/RepositoryGitHubStatus"
+    RepositoryGitHubStatus:
+      type: object
+      required: [owner, name, pullRequests]
+      properties:
+        owner:
+          type: string
+        name:
+          type: string
+        pullRequests:
+          type: array
+          description: Open pull requests, newest first. Empty when `error` is set.
+          items:
+            $ref: "#/components/schemas/PullRequestSummary"
+        checks:
+          $ref: "#/components/schemas/CheckSummary"
+        error:
+          type: string
+          enum: [notFound, unauthorized, rateLimited, unavailable]
+          description: |
+            Why GitHub data isn't available: `notFound` (missing or not
+            visible to the user), `unauthorized` (sign in again),
+            `rateLimited`, or `unavailable` (GitHub error).
+    PullRequestSummary:
+      type: object
+      required: [number, title, url, author, isDraft, headBranch, reviewRequested]
+      properties:
+        number:
+          type: integer
+          example: 42
+        title:
+          type: string
+        url:
+          type: string
+          format: uri
+        author:
+          type: string
+          example: octocat
+        isDraft:
+          type: boolean
+        headBranch:
+          type: string
+        reviewRequested:
+          type: boolean
+          description: Whether the signed-in user is a requested reviewer.
+    CheckSummary:
+      type: object
+      description: The combined result of the check runs on the requested branch's latest commit. Absent when there are none.
+      required: [state, total, failed, pending, url]
+      properties:
+        state:
+          type: string
+          enum: [success, failure, pending]
+          description: "`failure` if any run failed, otherwise `pending` if any is still running, otherwise `success`."
+        total:
+          type: integer
+        failed:
+          type: integer
+        pending:
+          type: integer
+        url:
+          type: string
+          format: uri
+          description: The failing run if there is one, otherwise the most recent run.

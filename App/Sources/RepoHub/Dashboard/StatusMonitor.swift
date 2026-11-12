@@ -17,6 +17,8 @@ struct RepositoryFacts: Equatable {
     var remoteCount: Int
     /// Local branches suggested for cleanup (see ``StaleBranchDetector``).
     var staleBranchCount: Int
+    /// The GitHub repository of `origin`, or of the first GitHub remote.
+    var gitHub: GitHubRepository?
 }
 
 /// Reads and caches the git status of tracked repositories.
@@ -125,7 +127,12 @@ final class StatusMonitor {
         guard let remotes = try? await remotes, let stale = try? await stale else {
             return nil
         }
-        return RepositoryFacts(remoteCount: remotes.count, staleBranchCount: stale.candidates.count)
+        let origin = remotes.first { $0.name == "origin" }.flatMap { GitHubRepository(remoteURL: $0.fetchURL) }
+        return RepositoryFacts(
+            remoteCount: remotes.count,
+            staleBranchCount: stale.candidates.count,
+            gitHub: origin ?? remotes.lazy.compactMap { GitHubRepository(remoteURL: $0.fetchURL) }.first
+        )
     }
 
     nonisolated private static func read(_ path: String, with git: any GitServicing) async -> RepositoryStatusState {

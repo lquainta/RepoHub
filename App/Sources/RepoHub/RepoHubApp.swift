@@ -20,20 +20,21 @@ struct RepoHubApp: App {
         let environment = ProcessInfo.processInfo.environment
         let container = Self.makeContainer(environment: environment)
         self.container = container
+        let api = RepoHubAPI(baseURL: AppPreferences.backendURL(environment))
+        let account = AccountModel(
+            api: api,
+            credentials: UITestSupport.usesInMemoryStore(environment)
+                ? InMemoryCredentialStore() : KeychainCredentialStore()
+        )
+        _account = State(initialValue: account)
         _library = State(
             initialValue: LibraryViewModel(
                 store: LibraryStore(container: container),
-                autoRefresh: AutoRefreshController()
+                autoRefresh: AutoRefreshController(),
+                gitHub: GitHubStatusModel(account: account, api: api)
             )
         )
         launchFolders = Self.launchFolders(environment: environment)
-        _account = State(
-            initialValue: AccountModel(
-                api: RepoHubAPI(baseURL: AppPreferences.backendURL(environment)),
-                credentials: UITestSupport.usesInMemoryStore(environment)
-                    ? InMemoryCredentialStore() : KeychainCredentialStore()
-            )
-        )
     }
 
     var body: some Scene {
@@ -41,6 +42,7 @@ struct RepoHubApp: App {
             LibraryView(model: library)
                 .task { await library.start(addingFolders: launchFolders) }
                 .task { await account.restore() }
+                .task(id: account.user?.id) { await library.refreshGitHub() }
         }
         .modelContainer(container)
         .defaultLaunchBehavior(menuBarOnly && showMenuBarExtra ? .suppressed : .presented)

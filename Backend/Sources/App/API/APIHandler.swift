@@ -135,6 +135,34 @@ struct APIHandler: APIProtocol {
         return .ok(.init(body: .json(try Self.profile(user))))
     }
 
+    // MARK: - GitHub
+
+    func getRepositoryStatuses(
+        _ input: Operations.getRepositoryStatuses.Input
+    ) async throws -> Operations.getRepositoryStatuses.Output {
+        guard let current = RequestContext.user, let user = try await User.find(current.userID, on: app.db),
+            let token = try auth.githubToken(for: user)
+        else {
+            return .unauthorized(.init(body: .json(Self.error("Not signed in."))))
+        }
+        guard case .json(let request) = input.body else {
+            return .badRequest(.init(body: .json(Self.error("Expected a JSON body."))))
+        }
+        guard (1...100).contains(request.repositories.count) else {
+            return .badRequest(.init(body: .json(Self.error("Send between 1 and 100 repositories."))))
+        }
+        let references = request.repositories.map {
+            RepositoryStatusService.Reference(owner: $0.owner, name: $0.name, branch: $0.branch)
+        }
+        let statuses = await RepositoryStatusService(cache: app.githubCache, logger: logger).statuses(
+            for: references,
+            userID: try user.requireID(),
+            login: user.login,
+            token: token
+        )
+        return .ok(.init(body: .json(.init(repositories: statuses.map(Self.status)))))
+    }
+
     // MARK: - Webhooks
 
     func receiveGitHubWebhook(
@@ -176,6 +204,34 @@ struct APIHandler: APIProtocol {
 
     private static func profile(_ user: User) throws -> Components.Schemas.UserProfile {
         .init(id: try user.requireID().uuidString, login: user.login, name: user.name, avatarURL: user.avatarURL)
+    }
+
+    private static func status(_ status: RepositoryGitHubStatus) -> Components.Schemas.RepositoryGitHubStatus {
+        .init(
+            owner: status.owner,
+            name: status.name,
+            pullRequests: status.pullRequests.map {
+                .init(
+                    number: $0.number,
+                    title: $0.title,
+                    url: $0.url,
+                    author: $0.author,
+                    isDraft: $0.isDraft,
+                    headBranch: $0.headBranch,
+                    reviewRequested: $0.reviewRequested
+                )
+            },
+            checks: status.checks.map {
+                .init(
+                    state: .init(rawValue: $0.state.rawValue) ?? .pending,
+                    total: $0.total,
+                    failed: $0.failed,
+                    pending: $0.pending,
+                    url: $0.url
+                )
+            },
+            error: status.error.flatMap { .init(rawValue: $0.rawValue) }
+        )
     }
 
     private static func session(_ session: SessionResult) throws -> Components.Schemas.Session {

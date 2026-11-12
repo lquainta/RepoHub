@@ -1,4 +1,5 @@
 import Foundation
+import RepoHubCore
 import Testing
 
 @testable import RepoHub
@@ -16,7 +17,20 @@ actor FakeAPI: APIClienting {
     var polls: [Result<DeviceSignInPoll, APIError>] = []
     var refreshResult: Result<Session, APIError> = .success(.fixture(access: "refreshed", refresh: "r2"))
     var signOutError: APIError?
+    /// Answers for ``repositoryStatuses(_:accessToken:)``, by repository; unknown ones are `notFound`.
+    var gitHubStatuses: [GitHubRepository: GitHubRepositoryStatus] = [:]
+    var gitHubError: APIError?
+    /// Every batch requested.
+    private(set) var statusBatches: [[GitHubStatusRequest]] = []
     private(set) var calls: [String] = []
+
+    func setGitHubStatus(_ status: GitHubRepositoryStatus) {
+        gitHubStatuses[status.repository] = status
+    }
+
+    func setGitHubError(_ error: APIError?) {
+        gitHubError = error
+    }
 
     func setPolls(_ polls: [Result<DeviceSignInPoll, APIError>]) {
         self.polls = polls
@@ -57,6 +71,20 @@ actor FakeAPI: APIClienting {
     func currentUser(accessToken: String) async throws -> UserProfile {
         calls.append("me \(accessToken)")
         return .octocat
+    }
+
+    func repositoryStatuses(
+        _ requests: [GitHubStatusRequest],
+        accessToken: String
+    ) async throws -> [GitHubRepositoryStatus] {
+        calls.append("status \(accessToken)")
+        statusBatches.append(requests)
+        if let gitHubError {
+            throw gitHubError
+        }
+        return requests.map {
+            gitHubStatuses[$0.repository] ?? GitHubRepositoryStatus(repository: $0.repository, error: "notFound")
+        }
     }
 }
 
