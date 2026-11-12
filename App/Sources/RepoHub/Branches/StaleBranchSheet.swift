@@ -162,5 +162,6 @@ private struct FinishedView: View {
                 }
             }
         }
+        .accessibilityIdentifier("deletedBranchList")
     }
 }
