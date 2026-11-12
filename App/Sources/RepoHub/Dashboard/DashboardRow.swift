@@ -102,6 +102,44 @@ enum DashboardColumn: String, CaseIterable {
         }
     }
 
+    /// The narrowest the column gets (its `TableColumn.width(min:)`).
+    var minWidth: CGFloat {
+        switch self {
+        case .name: 140
+        case .branch: 90
+        case .changes: 90
+        case .sync: 80
+        case .stashes: 60
+        case .lastCommit: 90
+        case .gitHub: 70
+        }
+    }
+
+    /// The order columns are dropped in when the table gets narrow, least
+    /// important first. The name is never dropped.
+    static let hidingOrder: [DashboardColumn] = [.stashes, .sync, .lastCommit, .gitHub, .branch, .changes]
+
+    /// Padding and divider the table adds to each column.
+    static let columnSpacing: CGFloat = 10
+
+    /// The columns that fit side by side, at their minimum widths, in a table
+    /// `width` points wide, so a narrow window drops columns instead of
+    /// scrolling sideways (#59).
+    ///
+    /// Columns the user hid take no space. Before the table is measured
+    /// (`width` 0), every column is shown.
+    static func fitting(width: CGFloat, hidden: Set<DashboardColumn> = []) -> Set<DashboardColumn> {
+        var shown = Set(allCases).subtracting(hidden)
+        guard width > 0 else {
+            return shown
+        }
+        func needed() -> CGFloat { shown.reduce(0) { $0 + $1.minWidth + columnSpacing } }
+        for column in hidingOrder where needed() > width {
+            shown.remove(column)
+        }
+        return shown
+    }
+
     /// The column a comparator sorts by.
     init?(comparator: KeyPathComparator<DashboardRow>) {
         guard

@@ -2,18 +2,30 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 /// Main window: scan folders in the sidebar, discovered repositories in the detail.
+///
+/// The layout adapts to the window's width (#59): below ``compactWidth`` the
+/// sidebar hides itself (the toolbar button still shows it), and the
+/// dashboard drops its least important columns as it narrows.
 struct LibraryView: View {
+    /// Narrower than this, the sidebar doesn't fit beside the other two
+    /// columns at their minimum widths.
+    static let compactWidth: CGFloat = 820
+
     @Bindable var model: LibraryViewModel
     @State private var isImporting = false
     @State private var groupPrompt: GroupPrompt?
+    @State private var columnVisibility = NavigationSplitViewVisibility.all
+    /// Whether the sidebar was hidden for width, so widening brings it back.
+    /// If the user hid it themselves, it stays hidden.
+    @State private var sidebarHiddenForWidth = false
 
     var body: some View {
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $columnVisibility) {
             LibrarySidebar(model: model, groupPrompt: $groupPrompt)
                 .navigationSplitViewColumnWidth(min: 180, ideal: 220)
         } content: {
             RepositoryList(model: model, isImporting: $isImporting, groupPrompt: $groupPrompt)
-                .navigationSplitViewColumnWidth(min: 420, ideal: 640)
+                .navigationSplitViewColumnWidth(min: 300, ideal: 700)
                 .searchable(text: $model.filter.searchText, placement: .toolbar, prompt: "Name, path, or branch")
         } detail: {
             RepositoryDetailView(
@@ -97,7 +109,25 @@ struct LibraryView: View {
             Text(model.actions.failures.map { "\($0.repository): \($0.message)" }.joined(separator: "\n"))
         }
         .modifier(GroupNameAlert(prompt: $groupPrompt, model: model))
-        .frame(minWidth: 960, minHeight: 480)
+        .onGeometryChange(for: Bool.self) { $0.size.width < Self.compactWidth } action: { compact in
+            adaptSidebar(compact: compact)
+        }
+        // The dashboard and details side by side, at their minimum widths.
+        .frame(minWidth: 600, minHeight: 420)
+    }
+
+    /// Hides the sidebar when the window becomes compact, and shows it again
+    /// when it widens, unless the user changed it in between.
+    private func adaptSidebar(compact: Bool) {
+        if compact, columnVisibility == .all {
+            columnVisibility = .doubleColumn
+            sidebarHiddenForWidth = true
+        } else if !compact, sidebarHiddenForWidth {
+            if columnVisibility == .doubleColumn {
+                columnVisibility = .all
+            }
+            sidebarHiddenForWidth = false
+        }
     }
 }
 
