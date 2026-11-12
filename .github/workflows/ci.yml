@@ -128,6 +128,10 @@ jobs:
           echo "$RUNNER_TEMP/xcodegen/bin" >> "$GITHUB_PATH"
       - name: UI tests
         run: make test-ui RESULT_BUNDLE=build/app-ui.xcresult
+        env:
+          # Contrast can't be measured reliably on the runner's display; see
+          # AccessibilityTests.contrastIsAdvisory.
+          TEST_RUNNER_REPOHUB_CONTRAST_ADVISORY: "1"
       - name: Report test failures
         if: failure()
         run: scripts/xcresult-failures.sh build/app-ui.xcresult

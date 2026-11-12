@@ -24,14 +24,13 @@ final class AccessibilityTests: XCTestCase {
     /// Audits the app, failing on every issue except the framework-owned ones
     /// in ``isFrameworkIssue(_:)`` (documented in docs/accessibility.md).
     private func audit(_ screen: String) throws {
-        // On CI the app can launch behind other windows, and macOS dims an
-        // inactive app's text and window buttons, which fails contrast and
-        // parent/child checks that pass when the app is in front.
+        // Audit the app in front, as a user sees it.
         app.activate()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 10), "\(screen): app isn't frontmost")
         // A row under the pointer is highlighted, which changes its contrast;
         // park the pointer on the frontmost window's title bar.
         app.windows.element(boundBy: 0).coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.01)).hover()
+        var advisories: [String] = []
         try app.performAccessibilityAudit { issue in
             if self.isFrameworkIssue(issue) {
                 return true
@@ -40,16 +39,37 @@ final class AccessibilityTests: XCTestCase {
                 issue.element.map {
                     "\($0.elementType.rawValue) '\($0.identifier)' \(String(describing: $0.value)) at \($0.frame)"
                 } ?? "none"
-            XCTFail("\(screen): \(issue.compactDescription) [\(issue.auditType.rawValue)] on \(element)")
+            let message = "\(screen): \(issue.compactDescription) [\(issue.auditType.rawValue)] on \(element)"
+            if issue.auditType == .contrast && Self.contrastIsAdvisory {
+                advisories.append(message)
+            } else {
+                XCTFail(message)
+            }
             return true
         }
+        if !advisories.isEmpty {
+            let report = XCTAttachment(string: advisories.joined(separator: "\n"))
+            report.name = "Contrast issues (advisory on CI): \(screen)"
+            report.lifetime = .keepAlways
+            add(report)
+        }
     }
+
+    /// On GitHub's macOS runners the contrast audit fails even dark text on
+    /// the active window's light background, which passes on a real display,
+    /// so CI reports contrast issues as attachments instead of failing
+    /// (`TEST_RUNNER_REPOHUB_CONTRAST_ADVISORY=1` in ci.yml). `make test-ui`
+    /// enforces contrast. See docs/accessibility.md.
+    private static let contrastIsAdvisory =
+        ProcessInfo.processInfo.environment["REPOHUB_CONTRAST_ADVISORY"] == "1"
 
     /// Issues about elements an app can't change:
     /// - SwiftUI's unlabeled layout containers and the system Touch Bar, which
     ///   VoiceOver doesn't stop on;
     /// - native pop-up and menu buttons (SwiftUI `Picker` and `Menu`), which
     ///   the audit reports as having no action although they open;
+    /// - the unlabeled glyph group inside a window's title bar buttons (zoom,
+    ///   full screen), which AppKit draws;
     /// - contrast of text outside the frontmost sheet or window, which macOS
     ///   dims on purpose, and of toolbar tab titles, which AppKit draws;
     /// - contrast inside the selected row of a SwiftUI `Table`, whose cells
@@ -64,6 +84,14 @@ final class AccessibilityTests: XCTestCase {
             return [.group, .touchBar].contains(element.elementType) && element.identifier.isEmpty
         case .action:
             return [.popUpButton, .menuButton].contains(element.elementType)
+        case .parentChild:
+            guard element.elementType == .group else {
+                return false
+            }
+            let titleBarButtons = app.buttons.matching(
+                NSPredicate(format: "identifier BEGINSWITH %@", "_XCUI:")
+            ).allElementsBoundByIndex
+            return titleBarButtons.contains { $0.frame.insetBy(dx: -1, dy: -1).contains(element.frame) }
         case .contrast:
             // With a sheet open, only the sheet's own text counts: the window
             // behind it is covered but still in the accessibility tree.
