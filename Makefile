@@ -81,6 +81,10 @@ test-app: generate ## Run the macOS app's unit tests
 test-ui: generate ## Run the macOS app's UI tests (launches the app and drives it)
 	$(XCODEBUILD) test -only-testing:RepoHubUITests $(RESULT_BUNDLE_FLAG)
 
+.PHONY: dmg
+dmg: ## Build the release DMG (ad hoc signed, universal) into build/dist
+	scripts/package-dmg.sh
+
 .PHONY: coverage
 coverage: ## Run tests with coverage and write LCOV reports to coverage/
 	scripts/package-coverage.sh $(CORE_DIR) coverage/core.lcov

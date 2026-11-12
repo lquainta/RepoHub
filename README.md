@@ -11,6 +11,10 @@ A native macOS dashboard for all your local git repositories: status, stale bran
 
 > 🚧 Under active development. Build and run instructions are coming in [#13](https://github.com/lquainta/RepoHub/issues/13).
 
+## Install
+
+Download the DMG from [GitHub Releases](https://github.com/lquainta/RepoHub/releases/latest) and drag RepoHub to Applications. It isn't notarized, so allow it once in **System Settings → Privacy & Security → Open Anyway**. [docs/install.md](docs/install.md) has the details.
+
 ## Repository layout
 
 | Path | Contents |
