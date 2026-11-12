@@ -38,6 +38,7 @@ struct AccountSettings: View {
                     LabeledContent("Signed in as") {
                         VStack(alignment: .trailing) {
                             Text(user.login).bold()
+                                .accessibilityIdentifier("signedInLogin")
                             if let name = user.name {
                                 Text(name).foregroundStyle(.secondary)
                             }
