@@ -22,8 +22,12 @@ final class LocalizationTests: XCTestCase {
         app.terminate()
     }
 
+    /// The frontmost window. Queries stay inside it: searching the whole app,
+    /// menu bar included, times out on CI.
+    private var window: XCUIElement { app.windows.element(boundBy: 0) }
+
     private func element(containing text: String) -> XCUIElement {
-        app.descendants(matching: .any)
+        window.descendants(matching: .any)
             .matching(
                 NSPredicate(format: "label CONTAINS %@ OR value CONTAINS %@ OR title CONTAINS %@", text, text, text)
             )
@@ -31,14 +35,14 @@ final class LocalizationTests: XCTestCase {
     }
 
     func testDashboardIsInSpanish() {
-        XCTAssertTrue(app.descendants(matching: .any)["repository-clean"].waitForExistence(timeout: 20))
+        XCTAssertTrue(window.descendants(matching: .any)["repository-clean"].waitForExistence(timeout: 20))
 
         // Column titles, a status, and the empty details pane.
         for text in ["Rama", "Cambios", "Limpio", "Ningún repositorio seleccionado"] {
             XCTAssertTrue(element(containing: text).waitForExistence(timeout: 5), "Missing Spanish text: \(text)")
         }
         for english in ["Branch", "Changes", "No Repository Selected", "Last Commit", "Ahead/Behind", "Clean"] {
-            let match = app.descendants(matching: .any).matching(
+            let match = window.descendants(matching: .any).matching(
                 NSPredicate(format: "label == %@ OR value == %@ OR title == %@", english, english, english)
             )
             XCTAssertFalse(match.firstMatch.exists, "English text in the Spanish UI: \(english)")
