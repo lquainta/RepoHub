@@ -12,6 +12,9 @@ RepoHub follows WCAG 2.2 AA where it applies to a macOS app, using the platform'
 | "Action is missing" on pop-up and menu buttons | SwiftUI `Picker` and `Menu` are native `NSPopUpButton`s, which open with VoiceOver's press action. The audit doesn't see it. |
 | Contrast outside the frontmost window or sheet, and of toolbar tab titles | macOS dims inactive windows on purpose, and AppKit draws the Settings tab titles. |
 | Contrast inside the selected row of the dashboard table | SwiftUI `Table` cells aren't told they're selected (`backgroundProminence`), so they keep their colors on the highlight, as AppKit tables do. |
+| "Parent/child mismatch" on the glyph inside a window's title bar buttons | AppKit draws the zoom and full-screen buttons. |
+
+**Contrast on CI is reported, not enforced.** On GitHub's macOS runners the contrast audit fails even dark text on the active window's light background. The CI screen recordings show the window active and readable, so the runner's display measures contrast wrongly. CI therefore attaches contrast issues to the test results ("Contrast issues (advisory on CI)") instead of failing the job, and every other audit type still fails it. **`make test-ui` on a Mac enforces contrast**, so run it before changing colors or text styles.
 
 `testKeyboardShortcuts` checks that the menu shortcuts open and close the cleanup sheet (⌥⌘B, Escape) and the Activity window (⇧⌘A). Moving through the table with the arrow keys is the standard AppKit table behavior.
 
