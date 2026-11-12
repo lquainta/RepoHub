@@ -49,11 +49,12 @@ final class FlowTests: XCTestCase {
 
     func testAddingAFolderListsItsRepositories() {
         waitForRepositories()
-        // Each row shows the repository's path inside the scanned folder. The
-        // row's texts are combined into one accessibility label (its value is
-        // the table cell's, not ours).
+        // Each row shows the repository's path inside the scanned folder.
+        // SwiftUI puts the row's combined text in its label or its value,
+        // depending on the row's accessibility modifiers, so check both.
         let row = element("repository-clean")
-        XCTAssertTrue(row.label.contains("repohub-ui-git"), "Row label: \(row.label)")
+        let text = "\(row.label) \((row.value as? String) ?? "")"
+        XCTAssertTrue(text.contains("repohub-ui-git"), "Row text: \(text)")
     }
 
     func testFilteringByUncommittedChangesShowsOnlyDirtyRepositories() {
@@ -107,13 +108,12 @@ final class FlowTests: XCTestCase {
 
         element("signIn").click()
 
+        // LabeledContent gives its identifier to each text inside it, so the
+        // first "signedInUser" element is the login. (Searching every element
+        // for the text instead times out on CI.)
         let user = element("signedInUser")
         XCTAssertTrue(user.waitForExistence(timeout: 10))
-        // Look the login up by identifier: searching for its text reads every
-        // element's label and value, which times out on CI.
-        let login = element("signedInLogin")
-        XCTAssertTrue(login.waitForExistence(timeout: 5))
-        XCTAssertEqual((login.value as? String) ?? login.label, "octocat")
+        XCTAssertEqual(user.value as? String, "octocat")
 
         app.buttons["Sign Out"].click()
         XCTAssertTrue(element("signIn").waitForExistence(timeout: 10))
