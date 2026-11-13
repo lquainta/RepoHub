@@ -87,6 +87,14 @@ struct AuthAPITests {
     @Test("Auth endpoints are rate limited per IP with Retry-After; /health is exempt")
     func rateLimits() async throws {
         try await withConfiguredApp(["AUTH_RATE_LIMIT_PER_MINUTE": "3", "RATE_LIMIT_PER_MINUTE": "1000"]) { app in
+            // The limiter counts per calendar minute. Near the end of a minute,
+            // wait for the next one so all four requests fall in one window
+            // (a rollover mid-test restarts the count; #168). The window logic
+            // itself is tested with a fake clock in SecurityTests.
+            let second = Int(Date.now.timeIntervalSince1970) % 60
+            if second >= 57 {
+                try await Task.sleep(for: .seconds(61 - second))
+            }
             for _ in 0..<3 {
                 try await app.testing().test(.POST, "auth/device") { res async in
                     #expect(res.status == .serviceUnavailable)
