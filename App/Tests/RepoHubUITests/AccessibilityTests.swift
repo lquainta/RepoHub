@@ -22,7 +22,7 @@ final class AccessibilityTests: XCTestCase {
     }
 
     /// Audits the app, failing on every issue except the framework-owned ones
-    /// in ``isFrameworkIssue(_:)`` (documented in docs/accessibility.md).
+    /// in ``isFrameworkIssue(_:element:)`` (documented in docs/accessibility.md).
     private func audit(_ screen: String) throws {
         // Audit a settled screen: spinners that come and go while statuses
         // load can be reported after they're gone, with no element to name.
@@ -35,25 +35,25 @@ final class AccessibilityTests: XCTestCase {
         app.windows.element(boundBy: 0).coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.01)).hover()
         var advisories: [String] = []
         try app.performAccessibilityAudit { issue in
-            if self.isFrameworkIssue(issue) {
+            // Read the issue's element once, as a snapshot. Text that redraws,
+            // such as "16 seconds ago", can be replaced at any moment; reading
+            // a replaced element's attributes fails the test, but snapshot()
+            // throws an error that can be handled.
+            let snapshot = try? issue.element?.snapshot()
+            if self.isFrameworkIssue(issue, element: snapshot) {
                 return true
             }
-            // Text that redraws, such as "19 seconds ago", can be replaced
-            // before the issue is reported; reading a vanished element fails
-            // the test, so describe it as gone instead.
             let element =
-                issue.element.map {
-                    $0.exists
-                        ? "\($0.elementType.rawValue) '\($0.identifier)' \(String(describing: $0.value)) at \($0.frame)"
-                        : "an element no longer on screen"
-                } ?? "none"
+                snapshot.map {
+                    "\($0.elementType.rawValue) '\($0.identifier)' \(String(describing: $0.value)) at \($0.frame)"
+                } ?? "no element (none named, or it was replaced)"
             let message = "\(screen): \(issue.compactDescription) [\(issue.auditType.rawValue)] on \(element)"
             // An issue whose element was replaced before it could be reported
             // (relative dates such as "16 seconds ago" redraw every second), or
             // that names no element at all, can't be inspected, so it's listed
             // in the report, with the audit's full description, rather than
             // failing the test.
-            let unlocatable = issue.element.map { !$0.exists } ?? true
+            let unlocatable = snapshot == nil
             if unlocatable || (issue.auditType == .contrast && Self.contrastIsAdvisory) {
                 advisories.append("\(message): \(issue.detailedDescription)")
             } else {
@@ -99,8 +99,11 @@ final class AccessibilityTests: XCTestCase {
     /// - contrast inside the selected row of a SwiftUI `Table`, whose cells
     ///   don't learn they're selected (`backgroundProminence`), so they keep
     ///   their colors on the selection highlight, as AppKit tables do.
-    private func isFrameworkIssue(_ issue: XCUIAccessibilityAuditIssue) -> Bool {
-        guard let element = issue.element, element.exists else {
+    private func isFrameworkIssue(
+        _ issue: XCUIAccessibilityAuditIssue,
+        element: (any XCUIElementSnapshot)?
+    ) -> Bool {
+        guard let element else {
             return false
         }
         switch issue.auditType {
