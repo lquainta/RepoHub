@@ -94,6 +94,8 @@ final class AccessibilityTests: XCTestCase {
     ///   the audit reports as having no action although they open;
     /// - the unlabeled glyph group inside a window's title bar buttons (zoom,
     ///   full screen), which AppKit draws;
+    /// - "no description" on the system tooltip (help tag) that appears when
+    ///   the parked pointer rests on a toolbar button;
     /// - contrast of text outside the frontmost sheet or window, which macOS
     ///   dims on purpose, and of toolbar tab titles, which AppKit draws;
     /// - contrast inside the selected row of a SwiftUI `Table`, whose cells
@@ -108,7 +110,10 @@ final class AccessibilityTests: XCTestCase {
         }
         switch issue.auditType {
         case .sufficientElementDescription:
-            return [.group, .touchBar].contains(element.elementType) && element.identifier.isEmpty
+            // A tooltip shown because the pointer rests on a toolbar button
+            // is a system help tag window; its text is the button's `.help`.
+            return element.elementType == .helpTag
+                || ([.group, .touchBar].contains(element.elementType) && element.identifier.isEmpty)
         case .action:
             return [.popUpButton, .menuButton].contains(element.elementType)
         case .parentChild:

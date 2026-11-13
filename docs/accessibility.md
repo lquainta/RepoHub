@@ -13,6 +13,7 @@ RepoHub follows WCAG 2.2 AA where it applies to a macOS app, using the platform'
 | Contrast outside the frontmost window or sheet, and of toolbar tab titles | macOS dims inactive windows on purpose, and AppKit draws the Settings tab titles. |
 | Contrast inside the selected row of the dashboard table | SwiftUI `Table` cells aren't told they're selected (`backgroundProminence`), so they keep their colors on the highlight, as AppKit tables do. |
 | "Parent/child mismatch" on the glyph inside a window's title bar buttons | AppKit draws the zoom and full-screen buttons. |
+| "No description" on a tooltip (help tag) | macOS draws the tooltip that appears when the pointer rests on a toolbar button; its text is that button's `.help`. |
 
 **Contrast on CI is reported, not enforced.** On GitHub's macOS runners the contrast audit fails even dark text on the active window's light background. The CI screen recordings show the window active and readable, so the runner's display measures contrast wrongly. CI therefore attaches contrast issues to the test results ("Advisory audit issues") instead of failing the job, and every other audit type still fails it. The same report lists any issue that names no element, or whose element was replaced before it could be inspected, such as a relative date ("16 seconds ago") that redraws every second. **`make test-ui` on a Mac enforces contrast**, so run it before changing colors or text styles.
 
