@@ -108,12 +108,12 @@ final class FlowTests: XCTestCase {
 
         element("signIn").click()
 
-        // LabeledContent gives its identifier to each text inside it, so the
-        // first "signedInUser" element is the login. (Searching every element
-        // for the text instead times out on CI.)
-        let user = element("signedInUser")
-        XCTAssertTrue(user.waitForExistence(timeout: 10))
-        XCTAssertEqual(user.value as? String, "octocat")
+        // LabeledContent gives its identifier to each text inside it (the
+        // login and the name), so look for the one showing the login.
+        // (Searching every element for the text instead times out on CI.)
+        let login = app.descendants(matching: .any).matching(identifier: "signedInUser")
+            .matching(NSPredicate(format: "value == %@", "octocat")).firstMatch
+        XCTAssertTrue(login.waitForExistence(timeout: 10))
 
         app.buttons["Sign Out"].click()
         XCTAssertTrue(element("signIn").waitForExistence(timeout: 10))
