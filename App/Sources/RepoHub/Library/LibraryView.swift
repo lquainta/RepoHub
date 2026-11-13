@@ -18,6 +18,7 @@ struct LibraryView: View {
     /// Whether the sidebar was hidden for width, so widening brings it back.
     /// If the user hid it themselves, it stays hidden.
     @State private var sidebarHiddenForWidth = false
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
@@ -39,6 +40,12 @@ struct LibraryView: View {
         .toolbar {
             ToolbarItem {
                 QuickFilterMenu(filters: $model.filter.quickFilters)
+            }
+            ToolbarItem {
+                Button("Activity", systemImage: "chart.bar.xaxis") {
+                    openWindow(id: RepoHubApp.activityWindowID)
+                }
+                .help("Show commits per day for the last 30 days (⇧⌘A)")
             }
             ToolbarItemGroup {
                 if let progress = model.actions.fetchAllProgress {

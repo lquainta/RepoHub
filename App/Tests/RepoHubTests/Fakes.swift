@@ -104,6 +104,17 @@ actor FakeGit: GitServicing {
         undeletable = names
     }
 
+    /// Commit dates per path, for activity snapshots.
+    private var commitDateLists: [String: [Date]] = [:]
+
+    func setCommitDates(_ dates: [Date], for path: String) {
+        commitDateLists[path] = dates
+    }
+
+    func commitDates(of repository: URL, since date: Date) async throws -> [Date] {
+        (commitDateLists[repository.path] ?? []).filter { $0 >= date }
+    }
+
     func staleBranches(of repository: URL, inactiveAfterDays: Int?) async throws -> StaleBranchReport {
         staleReport
     }
@@ -288,6 +299,26 @@ actor FakeAPI: APIClienting {
         group.updatedAt = deletedAt
         serverClock += 1
         serverGroups[id] = (group, serverClock)
+    }
+
+    /// Uploaded snapshots, merged by repository and day like the server.
+    private(set) var snapshots: [String: ActivitySnapshot] = [:]
+    var activityResult: Result<[RepositoryActivity], APIError> = .success([])
+
+    func setActivity(_ result: Result<[RepositoryActivity], APIError>) {
+        activityResult = result
+    }
+
+    func uploadSnapshots(_ snapshots: [ActivitySnapshot], accessToken: String) async throws {
+        calls.append("upload \(snapshots.count)")
+        for snapshot in snapshots {
+            self.snapshots["\(snapshot.repository)@\(snapshot.day)"] = snapshot
+        }
+    }
+
+    func activity(days: Int, accessToken: String) async throws -> [RepositoryActivity] {
+        calls.append("activity \(days)")
+        return try activityResult.get()
     }
 
     /// Live changes to send; the stream ends after the last one.
