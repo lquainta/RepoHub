@@ -24,6 +24,9 @@ final class AccessibilityTests: XCTestCase {
     /// Audits the app, failing on every issue except the framework-owned ones
     /// in ``isFrameworkIssue(_:)`` (documented in docs/accessibility.md).
     private func audit(_ screen: String) throws {
+        // Audit a settled screen: spinners that come and go while statuses
+        // load can be reported after they're gone, with no element to name.
+        waitUntilLoaded()
         // Audit the app in front, as a user sees it.
         app.activate()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 10), "\(screen): app isn't frontmost")
@@ -57,6 +60,16 @@ final class AccessibilityTests: XCTestCase {
             report.name = "Contrast issues (advisory on CI): \(screen)"
             report.lifetime = .keepAlways
             add(report)
+        }
+    }
+
+    /// Waits up to 30 seconds for the loading indicators (scanning folders,
+    /// loading or refreshing a repository's status) to disappear.
+    private func waitUntilLoaded() {
+        for label in ["Scanning", "Loading status", "Refreshing"] {
+            let indicator = app.descendants(matching: .any)[label]
+            let gone = expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: indicator)
+            wait(for: [gone], timeout: 30)
         }
     }
 
