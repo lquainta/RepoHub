@@ -25,16 +25,26 @@ final class LocalizationTests: XCTestCase {
     /// The frontmost window.
     private var window: XCUIElement { app.windows.element(boundBy: 0) }
 
-    /// A static text in the frontmost window whose label or value is exactly
-    /// `text`. (Searching every element for a substring times out on CI, so
-    /// these queries name the element type and match exactly.)
-    private func text(_ text: String) -> XCUIElement {
-        window.staticTexts.matching(NSPredicate(format: "label == %@ OR value == %@", text, text)).firstMatch
+    // CI's accessibility tree shows where each text lives: column headers are
+    // buttons with a title, statuses are static texts with a value, and
+    // headings are static texts with a label. Each check queries that exact
+    // attribute on that element type, since searching every element for a
+    // substring times out on CI. Labels are matched with the subscript:
+    // `label ==` in a predicate didn't match on CI.
+
+    /// A column header titled exactly `title`.
+    private func column(_ title: String) -> XCUIElement {
+        window.buttons.matching(NSPredicate(format: "title == %@", title)).firstMatch
     }
 
-    /// A button, such as a column header, titled exactly `title`.
-    private func button(_ title: String) -> XCUIElement {
-        window.buttons.matching(NSPredicate(format: "title == %@ OR label == %@", title, title)).firstMatch
+    /// A static text whose value is exactly `value`, such as a status.
+    private func value(_ value: String) -> XCUIElement {
+        window.staticTexts.matching(NSPredicate(format: "value == %@", value)).firstMatch
+    }
+
+    /// A static text labeled exactly `label`, such as a heading.
+    private func heading(_ label: String) -> XCUIElement {
+        window.staticTexts[label]
     }
 
     func testDashboardIsInSpanish() {
@@ -42,17 +52,18 @@ final class LocalizationTests: XCTestCase {
 
         // Column titles, a status, and the empty details pane.
         for title in ["Rama", "Cambios"] {
-            XCTAssertTrue(button(title).waitForExistence(timeout: 5), "Missing Spanish column: \(title)")
+            XCTAssertTrue(column(title).waitForExistence(timeout: 5), "Missing Spanish column: \(title)")
         }
-        for spanish in ["Limpio", "Ningún repositorio seleccionado"] {
-            XCTAssertTrue(text(spanish).waitForExistence(timeout: 5), "Missing Spanish text: \(spanish)")
-        }
+        XCTAssertTrue(value("Limpio").waitForExistence(timeout: 5), "Missing Spanish status: Limpio")
+        XCTAssertTrue(
+            heading("Ningún repositorio seleccionado").waitForExistence(timeout: 5),
+            "Missing Spanish text: Ningún repositorio seleccionado"
+        )
         for english in ["Branch", "Changes", "Last Commit", "Ahead/Behind"] {
-            XCTAssertFalse(button(english).exists, "English column in the Spanish UI: \(english)")
+            XCTAssertFalse(column(english).exists, "English column in the Spanish UI: \(english)")
         }
-        for english in ["No Repository Selected", "Clean"] {
-            XCTAssertFalse(text(english).exists, "English text in the Spanish UI: \(english)")
-        }
+        XCTAssertFalse(value("Clean").exists, "English status in the Spanish UI: Clean")
+        XCTAssertFalse(heading("No Repository Selected").exists, "English text in the Spanish UI")
     }
 
     func testSettingsAreInSpanish() {
@@ -60,7 +71,12 @@ final class LocalizationTests: XCTestCase {
         let account = app.toolbars.buttons["Cuenta"]
         XCTAssertTrue(account.waitForExistence(timeout: 10))
         account.click()
-        XCTAssertTrue(button("Iniciar sesión con GitHub…").waitForExistence(timeout: 5))
-        XCTAssertTrue(text("Avisarme cuando").exists)
+        let signIn = window.descendants(matching: .any)["signIn"]
+        XCTAssertTrue(signIn.waitForExistence(timeout: 5))
+        XCTAssertTrue(
+            [signIn.label, signIn.title].contains("Iniciar sesión con GitHub…"),
+            "Sign-in button: \(signIn.label) / \(signIn.title)"
+        )
+        XCTAssertTrue(heading("Avisarme cuando").exists)
     }
 }
