@@ -105,3 +105,23 @@ extension Application {
         return try await send(.POST, "webhooks/github", json: json, headers: headers)
     }
 }
+
+private struct AccessTokenBody: Decodable {
+    let accessToken: String
+}
+
+extension Application {
+    /// Signs in through the device flow with a fake GitHub and returns an access token.
+    func signInWithFakeGitHub() async throws -> String {
+        githubOAuth = FakeGitHubOAuth(results: [.approved(token: "gho_token", scopes: "repo,read:user")])
+        _ = try await send(.POST, "auth/device", json: "")
+        let poll = #"{"deviceCode":"dc-1","deviceName":"Test Mac"}"#
+        let response = try await send(.POST, "auth/device/token", json: poll)
+        return try response.content.decode(AccessTokenBody.self).accessToken
+    }
+
+    /// The signed-in user's ID, from an access token.
+    func userID(forAccessToken token: String) async throws -> UUID {
+        try #require(try await authService(on: db).authenticate(accessToken: token)).userID
+    }
+}

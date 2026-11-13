@@ -102,16 +102,29 @@ struct GitHubCache: Sendable {
         return (entry.body, outcome)
     }
 
-    /// Deletes every user's cached responses for `owner/name` (for webhooks, #77).
-    func invalidate(owner: String, name: String) async {
+    /// Deletes every user's cached responses for `owner/name` (for webhooks)
+    /// and returns the users who had any, so their apps can be told (#77).
+    @discardableResult
+    func invalidate(owner: String, name: String) async -> Set<UUID> {
         let index = Self.indexKey("\(owner)/\(name)".lowercased())
         do {
             let keys = try await store.members(ofSet: index)
             try await store.delete(keys + [index])
             logger.debug("GitHub cache invalidated", metadata: ["repo": "\(owner)/\(name)", "keys": "\(keys.count)"])
+            return Set(keys.compactMap(Self.userID(fromKey:)))
         } catch {
             logger.warning("GitHub cache invalidation failed: \(error)")
+            return []
         }
+    }
+
+    /// The user ID in a key such as `gh:v1:<user>:<owner>/<name>:pulls`.
+    static func userID(fromKey key: String) -> UUID? {
+        let parts = key.split(separator: ":", maxSplits: 3)
+        guard parts.count >= 3, parts[0] == "gh", parts[1] == "v1" else {
+            return nil
+        }
+        return UUID(uuidString: String(parts[2]))
     }
 
     private static func indexKey(_ repo: String) -> String {

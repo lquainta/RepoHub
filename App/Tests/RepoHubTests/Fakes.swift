@@ -236,6 +236,32 @@ actor FakeAPI: APIClienting {
         return .octocat
     }
 
+    /// Live changes to send; the stream ends after the last one.
+    var changes: [GitHubRepository] = []
+    /// Errors to throw from successive `repositoryChanges` calls before streaming.
+    var changeErrors: [APIError] = []
+    private(set) var changeStreams = 0
+
+    func setChanges(_ changes: [GitHubRepository], failingFirst errors: [APIError] = []) {
+        self.changes = changes
+        changeErrors = errors
+    }
+
+    func repositoryChanges(accessToken: String) async throws -> AsyncThrowingStream<GitHubRepository, any Error> {
+        changeStreams += 1
+        if !changeErrors.isEmpty {
+            throw changeErrors.removeFirst()
+        }
+        let changes = changes
+        self.changes = []
+        return AsyncThrowingStream { continuation in
+            for change in changes {
+                continuation.yield(change)
+            }
+            continuation.finish()
+        }
+    }
+
     func repositoryStatuses(
         _ requests: [GitHubStatusRequest],
         accessToken: String

@@ -201,11 +201,7 @@ struct RepositoryStatusTests {
     }
 }
 
-/// The parts of `POST /github/status` and sign-in responses the route test reads.
-private struct AccessTokenBody: Decodable {
-    let accessToken: String
-}
-
+/// The parts of `POST /github/status` responses the route test reads.
 private struct PullBody: Decodable {
     let number: Int
     let reviewRequested: Bool
@@ -225,18 +221,6 @@ private struct StatusListBody: Decodable {
 extension DatabaseIntegrationTests {
     @Suite("GitHub status route")
     struct GitHubStatusRouteTests {
-        /// Signs in through the device flow with a fake GitHub and returns an access token.
-        private func signIn(_ app: Application) async throws -> String {
-            app.githubOAuth = FakeGitHubOAuth(results: [.approved(token: "gho_token", scopes: "repo,read:user")])
-            _ = try await app.send(.POST, "auth/device", json: "")
-            let response = try await app.send(
-                .POST,
-                "auth/device/token",
-                json: #"{"deviceCode":"dc-1","deviceName":"Test Mac"}"#
-            )
-            return try response.content.decode(AccessTokenBody.self).accessToken
-        }
-
         @Test("Signed-in users get pull requests and checks; others get 401; bad batches get 400")
         func route() async throws {
             try await withMigratedApp { app in
@@ -252,7 +236,7 @@ extension DatabaseIntegrationTests {
                     )
                 )
                 app.githubAPI = api
-                let token = try await signIn(app)
+                let token = try await app.signInWithFakeGitHub()
                 let request = #"{"repositories":[{"owner":"o","name":"r","branch":"main"}]}"#
 
                 let unauthenticated = try await app.send(.POST, "github/status", json: request)
