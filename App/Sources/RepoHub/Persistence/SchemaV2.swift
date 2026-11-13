@@ -75,10 +75,3 @@ enum SchemaV2: VersionedSchema {
         }
     }
 }
-
-/// The current version of the scan folder model.
-typealias ScanFolder = SchemaV2.ScanFolder
-/// The current version of the tracked repository model.
-typealias TrackedRepository = SchemaV2.TrackedRepository
-/// The current version of the repository group model.
-typealias RepoGroup = SchemaV2.RepoGroup

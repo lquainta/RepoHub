@@ -7,6 +7,8 @@ import SwiftUI
 struct RepoHubApp: App {
     /// Identifies the dashboard window so the menu bar can reopen it.
     static let mainWindowID = "main"
+    /// Identifies the activity history window.
+    static let activityWindowID = "activity"
 
     private let container: ModelContainer
     @State private var library: LibraryViewModel
@@ -34,13 +36,15 @@ struct RepoHubApp: App {
         gitHub.onUpdate = { _, new in
             Task { await notifier.update(new) }
         }
-        _library = State(
-            initialValue: LibraryViewModel(
-                store: LibraryStore(container: container),
-                autoRefresh: AutoRefreshController(),
-                gitHub: gitHub
-            )
-        )
+        let store = LibraryStore(container: container)
+        let library = LibraryViewModel(store: store, autoRefresh: AutoRefreshController(), gitHub: gitHub)
+        let sync = SyncModel(account: account, api: api, store: store) { [weak library] repository in
+            library?.remoteIdentity(of: repository)
+        }
+        sync.onApplied = { [weak library] in library?.load() }
+        library.sync = sync
+        library.activity = ActivityModel(account: account, api: api)
+        _library = State(initialValue: library)
         launchFolders = Self.launchFolders(environment: environment)
     }
 
@@ -49,13 +53,25 @@ struct RepoHubApp: App {
             LibraryView(model: library)
                 .task { await library.start(addingFolders: launchFolders) }
                 .task { await account.restore() }
-                .task(id: account.user?.id) { await library.refreshGitHub() }
+                .task(id: account.user?.id) {
+                    await library.refreshGitHub()
+                    await library.sync?.sync()
+                    await library.activity?.upload(library.activitySources)
+                }
         }
         .modelContainer(container)
         .defaultLaunchBehavior(menuBarOnly && showMenuBarExtra ? .suppressed : .presented)
         .commands {
             RepositoryCommands(model: library)
         }
+
+        Window("Activity", id: Self.activityWindowID) {
+            if let activity = library.activity {
+                ActivityView(model: activity, library: library)
+            }
+        }
+        .keyboardShortcut("a", modifiers: [.command, .shift])
+        .defaultSize(width: 720, height: 520)
 
         Settings {
             SettingsView(settings: settings, library: library, account: account)
