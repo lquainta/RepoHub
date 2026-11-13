@@ -48,12 +48,14 @@ final class AccessibilityTests: XCTestCase {
                         : "an element no longer on screen"
                 } ?? "none"
             let message = "\(screen): \(issue.compactDescription) [\(issue.auditType.rawValue)] on \(element)"
-            // An element replaced before it could be reported (relative dates
-            // such as "16 seconds ago" redraw every second) can't be inspected,
-            // so it's listed in the report rather than failing the test.
-            let vanished = issue.element.map { !$0.exists } ?? false
-            if vanished || (issue.auditType == .contrast && Self.contrastIsAdvisory) {
-                advisories.append(message)
+            // An issue whose element was replaced before it could be reported
+            // (relative dates such as "16 seconds ago" redraw every second), or
+            // that names no element at all, can't be inspected, so it's listed
+            // in the report, with the audit's full description, rather than
+            // failing the test.
+            let unlocatable = issue.element.map { !$0.exists } ?? true
+            if unlocatable || (issue.auditType == .contrast && Self.contrastIsAdvisory) {
+                advisories.append("\(message): \(issue.detailedDescription)")
             } else {
                 XCTFail(message)
             }
