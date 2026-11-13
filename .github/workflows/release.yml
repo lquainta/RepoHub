@@ -8,12 +8,21 @@
 # write on this repository). The default GITHUB_TOKEN would work, but pull
 # requests it opens don't trigger CI, so the release PR could never pass the
 # required checks.
+#
+# When a release is published, the macOS app job builds the DMG (#44) and
+# attaches it to the release. To rebuild a past release's DMG, run this
+# workflow by hand with its tag.
 name: Release
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Rebuild and attach the DMG for this existing release tag (e.g. v0.2.0). Leave empty to run release-please."
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -23,9 +32,14 @@ concurrency:
   group: release-please
   cancel-in-progress: false
 
+env:
+  XCODEGEN_VERSION: 2.46.0
+  XCODEGEN_SHA256: 4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806
+
 jobs:
   release-please:
     name: Release PR and tag
+    if: inputs.tag == ''
     runs-on: ubuntu-latest
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
@@ -40,3 +54,46 @@ jobs:
       - name: Summary
         if: steps.release.outputs.release_created
         run: echo "Released [${{ steps.release.outputs.tag_name }}](${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ steps.release.outputs.tag_name }})" >> "$GITHUB_STEP_SUMMARY"
+
+  macos-app:
+    name: macOS app (DMG)
+    needs: release-please
+    # Runs after release-please publishes a release, or by hand for a tag.
+    if: >-
+      !cancelled() && (needs.release-please.outputs.release_created == 'true' || inputs.tag != '')
+    runs-on: macos-26
+    timeout-minutes: 45
+    permissions:
+      contents: write # upload the DMG to the release
+    env:
+      TAG: ${{ inputs.tag || needs.release-please.outputs.tag_name }}
+    steps:
+      - name: Check the tag
+        run: |
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::'$TAG' isn't a release tag like v1.2.3"
+            exit 1
+          fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/${{ env.TAG }}
+      - name: Install XcodeGen ${{ env.XCODEGEN_VERSION }}
+        run: |
+          curl -sSL -o "$RUNNER_TEMP/xcodegen.zip" \
+            "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip"
+          echo "${XCODEGEN_SHA256}  $RUNNER_TEMP/xcodegen.zip" | shasum -a 256 --check
+          unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/xcodegen/bin" >> "$GITHUB_PATH"
+      - name: Build, sign, and package
+        run: scripts/package-dmg.sh "${TAG#v}"
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "$TAG" build/dist/RepoHub-*.dmg build/dist/RepoHub-*.dmg.sha256 --clobber
+          {
+            echo "**DMG attached to [$TAG](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/${TAG}):**"
+            echo '```'
+            cat build/dist/RepoHub-*.dmg.sha256
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
