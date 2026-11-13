@@ -4,6 +4,9 @@ import SwiftUI
 /// The main dashboard: every tracked repository and its status in a sortable table.
 ///
 /// The sort and the column layout (visibility, order, widths) are remembered per window.
+/// When the table is too narrow for every column, the least important ones are
+/// left out (see ``DashboardColumn/fitting(width:hidden:)``) instead of
+/// scrolling sideways.
 struct DashboardTable<ExtraMenu: View>: View {
     let rows: [DashboardRow]
     let refreshing: Set<String>
@@ -15,8 +18,16 @@ struct DashboardTable<ExtraMenu: View>: View {
     @SceneStorage("dashboard.sort") private var savedSort = DashboardSort.default
     @SceneStorage("dashboard.columns") private var columnCustomization = TableColumnCustomization<DashboardRow>()
     @State private var sortOrder = DashboardSort.default.comparators
+    @State private var width: CGFloat = 0
+
+    /// The columns to include: those that fit, skipping ones the user hid.
+    private var shown: Set<DashboardColumn> {
+        let hidden = DashboardColumn.allCases.filter { columnCustomization[visibility: $0.rawValue] == .hidden }
+        return DashboardColumn.fitting(width: width, hidden: Set(hidden))
+    }
 
     var body: some View {
+        let shown = shown
         Table(
             of: DashboardRow.self,
             selection: $selection,
@@ -26,59 +37,71 @@ struct DashboardTable<ExtraMenu: View>: View {
             TableColumn("Name", value: \.name) { row in
                 NameCell(row: row, isRefreshing: refreshing.contains(row.id))
             }
-            .width(min: 140, ideal: 200)
+            .width(min: DashboardColumn.name.minWidth, ideal: 200)
             .customizationID(DashboardColumn.name.rawValue)
             .disabledCustomizationBehavior(.visibility)
 
-            TableColumn("Branch", value: \.branchSortKey) { row in
-                if let status = row.status {
-                    Label(StatusText.branch(status.head), systemImage: "arrow.triangle.branch")
-                        .labelStyle(.titleAndIcon)
-                        .lineLimit(1)
+            if shown.contains(.branch) {
+                TableColumn("Branch", value: \.branchSortKey) { row in
+                    if let status = row.status {
+                        Label(StatusText.branch(status.head), systemImage: "arrow.triangle.branch")
+                            .labelStyle(.titleAndIcon)
+                            .lineLimit(1)
+                    }
                 }
+                .width(min: DashboardColumn.branch.minWidth, ideal: 140)
+                .customizationID(DashboardColumn.branch.rawValue)
             }
-            .width(min: 90, ideal: 140)
-            .customizationID(DashboardColumn.branch.rawValue)
 
-            TableColumn("Changes", value: \.changeCountSortKey) { row in
-                ChangesCell(state: row.state)
-            }
-            .width(min: 90, ideal: 160)
-            .customizationID(DashboardColumn.changes.rawValue)
-
-            TableColumn("Ahead/Behind", value: \.syncSortKey) { row in
-                if let status = row.status {
-                    SyncCell(status: status)
+            if shown.contains(.changes) {
+                TableColumn("Changes", value: \.changeCountSortKey) { row in
+                    ChangesCell(state: row.state)
                 }
+                .width(min: DashboardColumn.changes.minWidth, ideal: 160)
+                .customizationID(DashboardColumn.changes.rawValue)
             }
-            .width(min: 80, ideal: 110)
-            .customizationID(DashboardColumn.sync.rawValue)
 
-            TableColumn("Stashes", value: \.stashSortKey) { row in
-                if let status = row.status, status.stashCount > 0 {
-                    Label("\(status.stashCount)", systemImage: "tray.full")
-                        .accessibilityLabel(Text("\(status.stashCount) stashes"))
+            if shown.contains(.sync) {
+                TableColumn("Ahead/Behind", value: \.syncSortKey) { row in
+                    if let status = row.status {
+                        SyncCell(status: status)
+                    }
                 }
+                .width(min: DashboardColumn.sync.minWidth, ideal: 110)
+                .customizationID(DashboardColumn.sync.rawValue)
             }
-            .width(min: 60, ideal: 70)
-            .customizationID(DashboardColumn.stashes.rawValue)
 
-            TableColumn("Last Commit", value: \.lastCommitSortKey) { row in
-                if let commit = row.status?.lastCommit {
-                    Text(commit.date, format: .relative(presentation: .named))
-                        .help("\(commit.subject) — \(commit.author)")
+            if shown.contains(.stashes) {
+                TableColumn("Stashes", value: \.stashSortKey) { row in
+                    if let status = row.status, status.stashCount > 0 {
+                        Label("\(status.stashCount)", systemImage: "tray.full")
+                            .accessibilityLabel(Text("\(status.stashCount) stashes"))
+                    }
                 }
+                .width(min: DashboardColumn.stashes.minWidth, ideal: 70)
+                .customizationID(DashboardColumn.stashes.rawValue)
             }
-            .width(min: 90, ideal: 120)
-            .customizationID(DashboardColumn.lastCommit.rawValue)
 
-            TableColumn("GitHub", value: \.gitHubSortKey) { row in
-                if let gitHub = row.gitHub, gitHub.error == nil {
-                    GitHubBadges(status: gitHub, branch: row.currentBranch)
+            if shown.contains(.lastCommit) {
+                TableColumn("Last Commit", value: \.lastCommitSortKey) { row in
+                    if let commit = row.status?.lastCommit {
+                        Text(commit.date, format: .relative(presentation: .named))
+                            .help("\(commit.subject) — \(commit.author)")
+                    }
                 }
+                .width(min: DashboardColumn.lastCommit.minWidth, ideal: 120)
+                .customizationID(DashboardColumn.lastCommit.rawValue)
             }
-            .width(min: 70, ideal: 100)
-            .customizationID(DashboardColumn.gitHub.rawValue)
+
+            if shown.contains(.gitHub) {
+                TableColumn("GitHub", value: \.gitHubSortKey) { row in
+                    if let gitHub = row.gitHub, gitHub.error == nil {
+                        GitHubBadges(status: gitHub, branch: row.currentBranch)
+                    }
+                }
+                .width(min: DashboardColumn.gitHub.minWidth, ideal: 100)
+                .customizationID(DashboardColumn.gitHub.rawValue)
+            }
         } rows: {
             ForEach(rows.sorted(using: sortOrder)) { row in
                 // Dragging a row onto a sidebar group adds it to the group.
@@ -99,6 +122,11 @@ struct DashboardTable<ExtraMenu: View>: View {
             if let sort = DashboardSort(comparators: newValue) {
                 savedSort = sort
             }
+        }
+        .onGeometryChange(for: CGFloat.self) {
+            $0.size.width
+        } action: {
+            width = $0
         }
         .accessibilityIdentifier("repositoryTable")
     }
