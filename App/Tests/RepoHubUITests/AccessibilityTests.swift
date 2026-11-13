@@ -35,9 +35,14 @@ final class AccessibilityTests: XCTestCase {
             if self.isFrameworkIssue(issue) {
                 return true
             }
+            // Text that redraws, such as "19 seconds ago", can be replaced
+            // before the issue is reported; reading a vanished element fails
+            // the test, so describe it as gone instead.
             let element =
                 issue.element.map {
-                    "\($0.elementType.rawValue) '\($0.identifier)' \(String(describing: $0.value)) at \($0.frame)"
+                    $0.exists
+                        ? "\($0.elementType.rawValue) '\($0.identifier)' \(String(describing: $0.value)) at \($0.frame)"
+                        : "an element no longer on screen"
                 } ?? "none"
             let message = "\(screen): \(issue.compactDescription) [\(issue.auditType.rawValue)] on \(element)"
             if issue.auditType == .contrast && Self.contrastIsAdvisory {
@@ -76,7 +81,7 @@ final class AccessibilityTests: XCTestCase {
     ///   don't learn they're selected (`backgroundProminence`), so they keep
     ///   their colors on the selection highlight, as AppKit tables do.
     private func isFrameworkIssue(_ issue: XCUIAccessibilityAuditIssue) -> Bool {
-        guard let element = issue.element else {
+        guard let element = issue.element, element.exists else {
             return false
         }
         switch issue.auditType {
