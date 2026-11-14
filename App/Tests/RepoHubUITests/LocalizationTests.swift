@@ -50,16 +50,18 @@ final class LocalizationTests: XCTestCase {
     func testDashboardIsInSpanish() {
         XCTAssertTrue(window.descendants(matching: .any)["repository-clean"].waitForExistence(timeout: 20))
 
-        // Column titles, a status, and the empty details pane.
-        for title in ["Rama", "Cambios"] {
-            XCTAssertTrue(column(title).waitForExistence(timeout: 5), "Missing Spanish column: \(title)")
-        }
-        XCTAssertTrue(value("Limpio").waitForExistence(timeout: 5), "Missing Spanish status: Limpio")
+        // Text that's on screen at any window size: the Name column (the
+        // dashboard drops the others when it's narrow, as on CI's 900-point
+        // window), the search prompt, and the empty details pane. Statuses
+        // such as "Limpio" are covered at a fixed size by SnapshotTests.
+        XCTAssertTrue(column("Nombre").waitForExistence(timeout: 5), "Missing Spanish column: Nombre")
+        XCTAssertEqual(window.searchFields.firstMatch.placeholderValue, "Nombre, ruta o rama")
         XCTAssertTrue(
             heading("Ningún repositorio seleccionado").waitForExistence(timeout: 5),
             "Missing Spanish text: Ningún repositorio seleccionado"
         )
-        for english in ["Branch", "Changes", "Last Commit", "Ahead/Behind"] {
+        // No English, in any column that is shown.
+        for english in ["Name", "Branch", "Changes", "Last Commit", "Ahead/Behind"] {
             XCTAssertFalse(column(english).exists, "English column in the Spanish UI: \(english)")
         }
         XCTAssertFalse(value("Clean").exists, "English status in the Spanish UI: Clean")
