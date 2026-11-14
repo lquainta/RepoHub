@@ -128,6 +128,7 @@ struct DashboardTable<ExtraMenu: View>: View {
         } action: {
             width = $0
         }
+        .accessibilityLabel("Repositories")
         .accessibilityIdentifier("repositoryTable")
     }
 }
@@ -142,9 +143,11 @@ private struct NameCell: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(row.name)
                     .fontWeight(.medium)
+                // Primary color at caption size: Table rows don't pass
+                // backgroundProminence to cells, and the gray fails contrast
+                // on the row backgrounds.
                 Text(row.path)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .truncationMode(.middle)
             }
@@ -171,13 +174,11 @@ private struct ChangesCell: View {
                 .controlSize(.small)
                 .accessibilityLabel("Loading status")
         case .failed(let message):
-            Label("Unavailable", systemImage: "exclamationmark.triangle")
-                .foregroundStyle(.orange)
+            StatusLabel("Unavailable", systemImage: "exclamationmark.triangle", tint: .orange)
                 .help(message)
                 .accessibilityLabel(Text("Status unavailable: \(message)"))
         case .loaded(let status) where status.isClean:
-            Label("Clean", systemImage: "checkmark.circle")
-                .foregroundStyle(.green)
+            StatusLabel("Clean", systemImage: "checkmark.circle", tint: .green)
         case .loaded(let status):
             HStack(spacing: 8) {
                 count(status.changes.conflicted, systemImage: "exclamationmark.triangle.fill", tint: .red)
@@ -188,18 +189,15 @@ private struct ChangesCell: View {
             .help(StatusText.changes(status.changes))
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(StatusText.changes(status.changes))
+            .accessibilityAddTraits(.isStaticText)
         }
     }
 
     @ViewBuilder
     private func count(_ value: Int, systemImage: String, tint: Color) -> some View {
         if value > 0 {
-            Label {
-                Text(value, format: .number)
-            } icon: {
-                Image(systemName: systemImage).foregroundStyle(tint)
-            }
-            .labelStyle(.titleAndIcon)
+            StatusLabel(Text(value, format: .number), systemImage: systemImage, tint: tint)
+                .labelStyle(.titleAndIcon)
         }
     }
 }
@@ -212,10 +210,10 @@ private struct SyncCell: View {
         Group {
             if status.upstream == nil {
                 Text("—")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.secondaryText)
             } else if status.ahead == 0 && status.behind == 0 {
                 Image(systemName: "checkmark")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.secondaryText)
             } else {
                 HStack(spacing: 6) {
                     if status.ahead > 0 {

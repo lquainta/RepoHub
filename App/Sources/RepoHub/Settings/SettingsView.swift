@@ -55,7 +55,7 @@ private struct GeneralSettings: View {
                     """
                 )
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.secondaryText)
             }
             Section {
                 Picker("Fetch all repositories", selection: $settings.backgroundFetchMinutes) {
@@ -66,8 +66,8 @@ private struct GeneralSettings: View {
                     Text("Every hour").tag(60)
                 }
                 Text("Statuses refresh automatically when files change. Fetching also checks remotes for new commits.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(.callout)
+                    .foregroundStyle(.secondaryText)
             }
             Section {
                 Stepper(value: $settings.staleBranchDays, in: 0...3_650, step: 15) {
@@ -82,7 +82,7 @@ private struct GeneralSettings: View {
                 }
                 Text("Inactive branches are suggested in Clean Up Branches. Merged branches always are.")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.secondaryText)
             }
         }
         .formStyle(.grouped)
@@ -99,7 +99,7 @@ private struct FolderSettings: View {
         Form {
             Section("Scan Folders") {
                 if library.folders.isEmpty {
-                    Text("No folders yet").foregroundStyle(.secondary)
+                    Text("No folders yet").foregroundStyle(.secondaryText)
                 }
                 ForEach(library.folders) { folder in
                     HStack {
@@ -135,7 +135,7 @@ private struct FolderSettings: View {
                 HStack {
                     Text("Hidden folders are always skipped. Changes apply on the next refresh (⌘R).")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.secondaryText)
                     Spacer()
                     Button("Restore Defaults") { settings.resetIgnoredFolderNames() }
                 }
