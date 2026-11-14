@@ -125,3 +125,14 @@ extension Application {
         try #require(try await authService(on: db).authenticate(accessToken: token)).userID
     }
 }
+
+/// Integration tests skip themselves without a database or Redis, which is
+/// right on a laptop but would hide a broken CI setup (#25).
+@Suite("Integration environment", .enabled(if: ProcessInfo.processInfo.environment["CI"] == "true"))
+struct IntegrationEnvironmentTests {
+    @Test("CI provides PostgreSQL and Redis, so integration tests run instead of skipping")
+    func servicesConfigured() {
+        #expect(TestDatabase.isAvailable, "TEST_DATABASE_URL isn't set in CI")
+        #expect(TestRedis.isAvailable, "TEST_REDIS_URL isn't set in CI")
+    }
+}
