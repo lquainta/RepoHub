@@ -17,8 +17,6 @@ protocol SyncStore: Sendable {
     /// Repositories with this GitHub owner and name, in every workspace (webhook fan-out).
     func repositories(githubOwner: String, name: String) async throws -> [TrackedRepo]
 
-    /// Groups changed after `since` (all if `nil`), including deletions.
-    func groups(workspaceID: UUID, changedSince since: Date?) async throws -> [RepoGroup]
     /// Applies a group change (including its members) if it's newer; returns the stored row.
     func upsert(_ change: RepoGroupChange, workspaceID: UUID) async throws -> RepoGroup
     /// The repository ids in a group.
@@ -101,14 +99,6 @@ struct FluentSyncStore: SyncStore {
             .filter(\.$githubName == name)
             .filter(\.$deletedAt == nil)
             .all()
-    }
-
-    func groups(workspaceID: UUID, changedSince since: Date?) async throws -> [RepoGroup] {
-        var query = RepoGroup.query(on: database).filter(\.$workspace.$id == workspaceID)
-        if let since {
-            query = query.filter(\.$updatedAt > since)
-        }
-        return try await query.sort(\.$sortOrder).sort(\.$name).all()
     }
 
     func upsert(_ change: RepoGroupChange, workspaceID: UUID) async throws -> RepoGroup {

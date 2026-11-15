@@ -1,4 +1,6 @@
+import Crypto
 import Foundation
+import JWTKit
 import Testing
 import Vapor
 
@@ -29,6 +31,9 @@ struct TokenCipherTests {
         }
         #expect(throws: TokenCipher.CipherError.unsupportedVersion(9)) { try cipher.open(Data([9, 1, 2, 3])) }
         #expect(throws: TokenCipher.CipherError.malformed) { try cipher.open(Data()) }
+        // Sealed with the right key, but not text.
+        let notText = try AES.GCM.seal(Data([0xFF, 0xFE]), using: SymmetricKey(data: key)).combined
+        #expect(throws: TokenCipher.CipherError.malformed) { try cipher.open(Data([1]) + (try #require(notText))) }
     }
 }
 
@@ -59,6 +64,20 @@ struct SessionTokensTests {
         #expect(await tokens.verify(expired) == nil)
         #expect(await tokens.verify(forged) == nil)
         #expect(await tokens.verify("not.a.jwt") == nil)
+
+        // Signed with the right key by something that isn't RepoHub.
+        let keys = JWTKeyCollection()
+        await keys.add(hmac: HMACKey(key: SymmetricKey(data: Data(repeating: 1, count: 32))), digestAlgorithm: .sha256)
+        let foreign = try await keys.sign(
+            AccessTokenPayload(
+                sub: SubjectClaim(value: UUID().uuidString),
+                sid: UUID().uuidString,
+                iat: IssuedAtClaim(value: .now),
+                exp: ExpirationClaim(value: .now.addingTimeInterval(60)),
+                iss: IssuerClaim(value: "someone-else")
+            )
+        )
+        #expect(await tokens.verify(foreign) == nil)
     }
 
     @Test("Refresh tokens are random, URL-safe, and stored only as a stable hash")
@@ -167,6 +186,16 @@ struct SecurityConfigTests {
             #expect(throws: ConfigurationError.missing(key: missing)) {
                 try SecurityConfig(reader: reader(values), environment: .production)
             }
+        }
+    }
+
+    @Test(
+        "Rate limits must be positive",
+        arguments: ["RATE_LIMIT_PER_MINUTE", "AUTH_RATE_LIMIT_PER_MINUTE"]
+    )
+    func rateLimitsMustBePositive(key: String) {
+        #expect(throws: ConfigurationError.invalid(key: key, expected: "a positive integer")) {
+            try SecurityConfig(reader: reader([key: "0"]), environment: .development)
         }
     }
 

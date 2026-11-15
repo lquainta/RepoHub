@@ -22,8 +22,3 @@ struct Stores: Sendable {
         webhookEvents = FluentWebhookEventStore(database: database)
     }
 }
-
-extension Request {
-    /// Stores bound to this request's database connection.
-    var stores: Stores { Stores(database: db) }
-}

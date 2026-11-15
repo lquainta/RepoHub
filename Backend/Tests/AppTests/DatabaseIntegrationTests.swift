@@ -365,6 +365,20 @@ extension DatabaseIntegrationTests {
             }
         }
 
+        @Test("The seed command seeds the database and describes what it added")
+        func command() async throws {
+            try await withMigratedApp { app in
+                var context = CommandContext(console: app.console, input: CommandInput(arguments: ["App", "seed"]))
+                context.application = app
+                try await SeedCommand().run(using: context, signature: .init())
+
+                #expect(try await User.query(on: app.db).count() == 2)
+                #expect(SeedCommand().help.contains("Refuses to run in production"))
+                let summary = SeedData.Summary(users: 2, repositories: 5, groups: 3, snapshots: 150, webhookEvents: 2)
+                #expect("\(summary)" == "2 users, 5 repositories, 3 groups, 150 snapshots, 2 webhook events")
+            }
+        }
+
         @Test("The seed command refuses production")
         func refusesProduction() throws {
             #expect(throws: SeedError.productionRefused) { try SeedCommand.ensureAllowed(in: .production) }
