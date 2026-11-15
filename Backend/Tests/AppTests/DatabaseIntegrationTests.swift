@@ -48,6 +48,53 @@ struct DatabaseIntegrationTests {
         }
     }
 
+    @Test("Sessions use UTC even when the database's default time zone isn't, so days aren't shifted")
+    func sessionsUseUTC() async throws {
+        // Give the test database a default west of UTC, as a developer's local PostgreSQL has.
+        try await withMigratedApp { app in
+            let sql = try #require(app.db as? any SQLDatabase)
+            let name = try await sql.raw("SELECT current_database() AS name").first(decoding: NameRow.self)?.name
+            try await sql.raw("ALTER DATABASE \(ident: try #require(name)) SET timezone TO 'America/Boise'").run()
+        }
+        // New sessions would now default to Boise.
+        do {
+            try await withMigratedApp { app in
+                let sql = try #require(app.db as? any SQLDatabase)
+                let zone = try await sql.raw("SHOW TimeZone").first()?.decode(column: "TimeZone", as: String.self)
+                #expect(zone == "UTC")
+
+                let stores = Stores(database: app.db)
+                let profile = GitHubProfile(id: 7, login: "octocat", name: nil, avatarURL: nil)
+                let user = try await stores.users.upsert(profile, tokenCiphertext: Data([1]), scopes: "repo")
+                let service = ActivityService(database: app.db)
+                let upload = SnapshotInput(repository: "github.com/o/r", day: "2026-03-09", commits: 1)
+                try await service.upload([upload], userID: try user.requireID())
+                // The second upload must find the first, not insert a duplicate.
+                try await service.upload([upload], userID: try user.requireID())
+                let stored = try await sql.raw("SELECT day::text AS name FROM repo_snapshots").all(
+                    decoding: NameRow.self
+                )
+                #expect(stored.map(\.name) == ["2026-03-09"])
+            }
+        } catch {
+            try? await resetTimeZone()
+            throw error
+        }
+        try await resetTimeZone()
+    }
+
+    private struct NameRow: Decodable {
+        var name: String
+    }
+
+    private func resetTimeZone() async throws {
+        try await withMigratedApp { app in
+            let sql = try #require(app.db as? any SQLDatabase)
+            let name = try await sql.raw("SELECT current_database() AS name").first(decoding: NameRow.self)?.name
+            try await sql.raw("ALTER DATABASE \(ident: try #require(name)) RESET timezone").run()
+        }
+    }
+
     @Test("Every entity is written and read back through the stores")
     func readWriteAllEntities() async throws {
         try await withMigratedApp { app in
