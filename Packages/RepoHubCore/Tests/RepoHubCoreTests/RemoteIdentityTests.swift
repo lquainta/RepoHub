@@ -25,7 +25,10 @@ struct RemoteIdentityTests {
         #expect(RemoteIdentity.normalize("https://git.example.edu/cs471/hw.git") == "git.example.edu/cs471/hw")
     }
 
-    @Test("Local paths and malformed URLs have no identity", arguments: ["/srv/git/repo.git", "", "https://", "host:"])
+    @Test(
+        "Local paths and malformed URLs have no identity",
+        arguments: ["/srv/git/repo.git", "", "https://", "host:", "@:repo", "host:.git"]
+    )
     func noIdentity(url: String) {
         #expect(RemoteIdentity.normalize(url) == nil)
     }

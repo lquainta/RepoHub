@@ -89,6 +89,25 @@ struct RepositoryScannerTests {
         #expect(tree.relative(try await scanner.scan(tree.root, maxDepth: 10)) == ["projects/api"])
     }
 
+    @Test("Scanning one directory at a time finds the same repositories")
+    func sequential() async throws {
+        let tree = try Tree(["zeta/.git/", "group/beta/.git/", "group/deeper/gamma/.git/", "empty/"])
+        let found = try await RepositoryScanner(concurrent: false).scan(tree.root, maxDepth: 4)
+        #expect(tree.relative(found) == ["group/beta", "group/deeper/gamma", "zeta"])
+        #expect(found == (try await scanner.scan(tree.root, maxDepth: 4)))
+    }
+
+    @Test("A directory that can't be read is treated as empty")
+    func unreadableDirectory() async throws {
+        let tree = try Tree(["locked/hidden/.git/", "open/.git/"])
+        let locked = tree.root.appendingPathComponent("locked")
+        try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: locked.path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: locked.path) }
+        // root (the Linux CI container) can read every directory, so there's nothing to check there.
+        guard !FileManager.default.isReadableFile(atPath: locked.path) else { return }
+        #expect(tree.relative(try await scanner.scan(tree.root, maxDepth: 4)) == ["open"])
+    }
+
     @Test("A root that is itself a repository is returned alone")
     func rootIsRepository() async throws {
         let tree = try Tree([".git/", "packages/inner/.git/"])

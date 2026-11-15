@@ -106,6 +106,9 @@ struct PorcelainStatusParserTests {
             "# branch.oid abc\0# branch.head main\0Z unknown entry\0",
             "# branch.oid abc\0# branch.head main\01 MMM N... 1 2 3 a b path\0",
             "# branch.oid abc\0# branch.head main\02 R. N... 1 2 3 a b R100 new\0",  // rename without original path
+            "# branch.oid abc\0# branch.head main\0# lonely\0",  // header without a value
+            "# branch.oid abc\0# branch.head main\01\0",  // entry without a status code
+            "# branch.oid abc\0# branch.head main\0? \0",  // untracked entry without a path
         ]
     )
     func malformed(output: String) {
@@ -115,6 +118,15 @@ struct PorcelainStatusParserTests {
             guard case GitError.unexpectedOutput = error else { return false }
             return true
         }
+    }
+
+    @Test("Ignored files are skipped")
+    func ignoredFiles() throws {
+        let (status, files) = try PorcelainStatusParser.parseWithFiles(
+            "# branch.oid abc\0# branch.head main\0! build/out.o\0? new.txt\0"
+        )
+        #expect(status.changes.untracked == 1)
+        #expect(files == [FileChange(path: "new.txt", area: .untracked, kind: .untracked)])
     }
 
     @Test("Unknown headers from newer git versions are ignored")

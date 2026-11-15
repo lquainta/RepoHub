@@ -22,12 +22,8 @@ public enum RemoteListParser {
                 throw GitError.unexpectedOutput("Malformed remote line: \(line)")
             }
         }
-        return fetch.keys.sorted().compactMap { name in
-            guard let url = fetch[name] else {
-                return nil
-            }
-            let pushURL = push[name].flatMap { $0 == url ? nil : $0 }
-            return Remote(name: name, fetchURL: url, pushURL: pushURL)
+        return fetch.sorted { $0.key < $1.key }.map { name, url in
+            Remote(name: name, fetchURL: url, pushURL: push[name].flatMap { $0 == url ? nil : $0 })
         }
     }
 }

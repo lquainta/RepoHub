@@ -68,7 +68,7 @@ public struct GitService: GitServicing {
     /// The underlying git commands run concurrently.
     ///
     /// - Throws: ``GitError`` if any git command fails or its output can't be parsed.
-    public func details(of repository: URL, commitLimit: Int = 20) async throws -> RepositoryDetails {
+    public func details(of repository: URL, commitLimit: Int) async throws -> RepositoryDetails {
         async let statusOutput = runStatus(in: repository)
         async let branchOutput = runner.run(
             ["--no-optional-locks", "for-each-ref", "--format=\(BranchListParser.format)"]

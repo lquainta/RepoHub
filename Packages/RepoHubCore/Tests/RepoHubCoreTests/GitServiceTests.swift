@@ -107,6 +107,51 @@ struct GitServiceTests {
         #expect(runner.calls == [["fetch", "--all", "--prune", "--quiet"], ["pull", "--ff-only", "--quiet"]])
     }
 
+    @Test("Details ask for the 20 most recent commits unless told otherwise")
+    func detailsDefaultLimit() async throws {
+        let runner = RecordingRunner(output: ["status": try Fixture.gitOutput("clean")])
+        _ = try await GitService(runner: runner).details(of: repo)
+        #expect(runner.calls.contains { $0.contains("log") && $0.contains("-20") })
+    }
+
+    /// One `for-each-ref` line for a local branch.
+    private func ref(_ name: String, upstream: String = "", current: Bool = false) -> String {
+        ["refs/heads/\(name)", upstream, "", "abc", "2026-10-01T09:30:00Z", current ? "*" : " "]
+            .joined(separator: "\u{1F}")
+    }
+
+    @Test("Without origin/HEAD the default branch is main or master, else the current branch, else main")
+    func defaultBranchFallbacks() async throws {
+        func report(_ refs: [String]) async throws -> StaleBranchReport {
+            let runner = FakeGitRunner(["for-each-ref": .success(refs.joined(separator: "\n"))])
+            return try await GitService(runner: runner).staleBranches(of: repo, inactiveAfterDays: nil)
+        }
+        #expect(try await report([ref("master"), ref("topic", current: true)]).defaultBranch == "master")
+        #expect(try await report([ref("trunk", current: true), ref("topic")]).defaultBranch == "trunk")
+        let detached = try await report([])
+        #expect(detached.defaultBranch == "main")
+        #expect(detached.currentBranch == nil)
+        #expect(detached.candidates.isEmpty)
+    }
+
+    @Test("A branch whose remote delete fails is still deleted locally, with the error reported")
+    func remoteDeleteFails() async throws {
+        let failure = GitError.commandFailed(command: "git push", exitCode: 1, stderr: "remote rejected")
+        let runner = FakeGitRunner([
+            "for-each-ref": .success(
+                [ref("main", current: true), ref("old", upstream: "origin/old")].joined(separator: "\n")
+            ),
+            "remote": .success("origin\thttps://example.com/o/r.git (fetch)\n"),
+            "branch": .success(""),
+            "push": .failure(failure),
+        ])
+        let service = GitService(runner: runner)
+        let old = Branch(name: "old", upstream: "origin/old", commit: "abc", lastCommitDate: .distantPast)
+        let results = try await service.deleteBranches([old], in: repo, force: false, deleteRemote: true)
+        #expect(results == [BranchDeletionResult(name: "old", error: failure, deletedRemote: false)])
+        #expect(runner.invokedSubcommands.contains("branch"))
+    }
+
     @Test("Propagates runner errors")
     func propagatesErrors() async {
         let runner = FakeGitRunner(["status": .failure(.notARepository(path: "/tmp/repo"))])
@@ -120,10 +165,16 @@ struct GitServiceTests {
 private final class RecordingRunner: GitCommandRunning, @unchecked Sendable {
     private let lock = NSLock()
     private var recorded: [[String]] = []
+    private let output: [String: String]
     var calls: [[String]] { lock.withLock { recorded } }
+
+    /// - Parameter output: What each subcommand prints; others print nothing.
+    init(output: [String: String] = [:]) {
+        self.output = output
+    }
 
     func run(_ arguments: [String], in directory: URL) async throws -> String {
         lock.withLock { recorded.append(arguments) }
-        return ""
+        return output[arguments.first { !$0.hasPrefix("-") } ?? ""] ?? ""
     }
 }
