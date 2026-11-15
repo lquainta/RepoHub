@@ -1,4 +1,5 @@
 import Foundation
+import Logging
 import Testing
 import Vapor
 import VaporTesting
@@ -116,12 +117,36 @@ struct RepositoryStatusTests {
         #expect(statuses[1].checks?.state == .success)
     }
 
-    @Test("A branch that was never pushed has no checks but keeps its pull requests")
-    func unpushedBranch() async throws {
+    /// The service, logging to `lines`.
+    private func service(_ api: FakeGitHubAPI, logTo lines: LogLines) -> RepositoryStatusService {
+        var service = service(api)
+        service.logger = Logger(label: "test") { label in
+            JSONLogHandler(label: label, level: .info, metadataProvider: nil) { lines.append($0) }
+        }
+        return service
+    }
+
+    private final class LogLines: @unchecked Sendable {
+        private let lock = NSLock()
+        private var stored: [String] = []
+        var all: [String] { lock.withLock { stored } }
+        func append(_ line: String) { lock.withLock { stored.append(line) } }
+    }
+
+    @Test(
+        "A branch that was never pushed has no checks, keeps its pull requests, and logs nothing",
+        arguments: [GitHubError.notFound, .unexpectedStatus(422)]
+    )
+    func unpushedBranch(error: GitHubError) async throws {
         let api = FakeGitHubAPI()
         await api.respond(to: pullsPath, with: ok(GitHubFixtures.pulls(GitHubFixtures.pull(1))))
+        await api.respond(
+            to: GitHubResource.checkRuns(ref: "local-only").path(owner: "o", name: "r"),
+            with: .failure(error)
+        )
+        let lines = LogLines()
 
-        let statuses = await service(api).statuses(
+        let statuses = await service(api, logTo: lines).statuses(
             for: [.init(owner: "o", name: "r", branch: "local-only")],
             userID: UUID(),
             login: "octocat",
@@ -129,6 +154,26 @@ struct RepositoryStatusTests {
         )
 
         #expect(statuses[0].error == nil && statuses[0].checks == nil && statuses[0].pullRequests.count == 1)
+        #expect(lines.all.isEmpty)
+    }
+
+    @Test("Checks that fail for another reason are logged, and the pull requests are still returned")
+    func checksUnavailable() async throws {
+        let api = FakeGitHubAPI()
+        await api.respond(to: pullsPath, with: ok(GitHubFixtures.pulls(GitHubFixtures.pull(1))))
+        await api.respond(to: mainChecksPath, with: .failure(.unexpectedStatus(500)))
+        let lines = LogLines()
+
+        let statuses = await service(api, logTo: lines).statuses(
+            for: [.init(owner: "o", name: "r", branch: "main")],
+            userID: UUID(),
+            login: "octocat",
+            token: "t"
+        )
+
+        #expect(statuses[0].error == nil && statuses[0].checks == nil && statuses[0].pullRequests.count == 1)
+        #expect(lines.all.count == 1)
+        #expect(lines.all.first?.contains("GitHub status failed") == true)
     }
 
     @Test("No branch (detached HEAD) skips the check runs request")

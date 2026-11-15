@@ -119,8 +119,9 @@ struct RepositoryStatusService: Sendable {
                 token: token
             )
             status.checks = try Self.checks(from: runs.body)
-        } catch GitHubError.notFound {
-            // The branch was never pushed, so it has no checks.
+        } catch GitHubError.notFound, GitHubError.unexpectedStatus(422) {
+            // The branch was never pushed, so it has no checks. GitHub answers
+            // 422 ("No commit found for SHA") for a ref it doesn't have.
         } catch {
             // Pull requests are still worth showing without checks.
             _ = failure(error, reference)
