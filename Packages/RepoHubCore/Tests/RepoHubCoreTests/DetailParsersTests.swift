@@ -48,6 +48,7 @@ struct BranchListParserTests {
             "refs/tags/v1\u{1F}\u{1F}\u{1F}abc\u{1F}2026-10-01T09:30:00Z\u{1F} ",
             "refs/heads/x\u{1F}\u{1F}\u{1F}abc\u{1F}yesterday\u{1F} ",
             "refs/heads/x\u{1F}o/x\u{1F}sideways 2\u{1F}abc\u{1F}2026-10-01T09:30:00Z\u{1F} ",
+            "refs/heads/x\u{1F}o/x\u{1F}ahead two\u{1F}abc\u{1F}2026-10-01T09:30:00Z\u{1F} ",
         ]
     )
     func malformed(line: String) {
@@ -151,8 +152,9 @@ struct GitHubRepositoryTests {
         #expect(GitHubRepository(remoteURL: url) == nil)
     }
 
-    @Test("Web URL points at the repository page")
+    @Test("Web URL points at the repository page, and the full name is owner/name")
     func webURL() {
         #expect(GitHubRepository(owner: "o", name: "r.js").webURL.absoluteString == "https://github.com/o/r.js")
+        #expect(GitHubRepository(owner: "o", name: "r.js").fullName == "o/r.js")
     }
 }
