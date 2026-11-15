@@ -130,6 +130,8 @@ make coverage    # writes coverage/core.lcov, coverage/backend.lcov, coverage/ap
 | --- | --- | --- |
 | `core` | `RepoHubCore` package tests (`scripts/package-coverage.sh`) | `Packages/RepoHubCore/Sources` |
 | `backend` | Backend package tests | `Backend/Sources` (RepoHubCore excluded; it has its own flag) |
-| `app` | App unit tests (`scripts/app-coverage.sh`) | `App/Sources` |
+| `app` | App unit tests **and UI tests** (`scripts/app-coverage.sh`), as two reports that Codecov merges | `App/Sources` |
+
+The SwiftUI views are covered by the UI tests and the rest of the app by the unit tests, so the app's coverage is the two reports together. `make coverage` only runs the unit tests; CI's **App UI tests (macOS)** job exports the UI tests' report.
 
 Tests, dependencies, and manifests are excluded. CI uploads each report to [Codecov](https://codecov.io/gh/lquainta/RepoHub) with its flag, writes the percentage to the job summary, and Codecov comments on PRs with the coverage diff. `codecov.yml` fails the `codecov/project` status if total coverage drops by more than 2%.

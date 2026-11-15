@@ -1,4 +1,10 @@
 # Codecov configuration: https://docs.codecov.com/docs/codecov-yaml
+codecov:
+  notify:
+    # Wait for all four reports (core, backend, app unit tests, app UI tests)
+    # before posting statuses, so a partial total never shows.
+    after_n_builds: 4
+
 coverage:
   precision: 1
   round: down

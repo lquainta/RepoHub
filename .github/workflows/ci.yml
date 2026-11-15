@@ -128,6 +128,9 @@ jobs:
   app-ui:
     name: App UI tests (macOS)
     runs-on: macos-26
+    permissions:
+      contents: read
+      id-token: write # Codecov OIDC upload, no stored token
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Install XcodeGen ${{ env.XCODEGEN_VERSION }}
@@ -138,11 +141,26 @@ jobs:
           unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP"
           echo "$RUNNER_TEMP/xcodegen/bin" >> "$GITHUB_PATH"
       - name: UI tests
-        run: make test-ui RESULT_BUNDLE=build/app-ui.xcresult
+        run: make test-ui RESULT_BUNDLE=build/app-ui.xcresult DERIVED_DATA=build/DerivedData
         env:
           # Contrast can't be measured reliably on the runner's display; see
           # AccessibilityTests.contrastIsAdvisory.
           TEST_RUNNER_REPOHUB_CONTRAST_ADVISORY: "1"
+      # The views are covered by these tests, not the unit tests. Codecov merges
+      # this report with the App job's under the same flag (#171).
+      - name: Export coverage
+        run: scripts/app-coverage.sh build/DerivedData coverage/app-ui.lcov
+      - name: Coverage summary
+        run: |
+          percent=$(awk -F: '/^LF:/ {f += $2} /^LH:/ {h += $2} END {printf "%.1f%%", h * 100 / f}' coverage/app-ui.lcov)
+          echo "**App line coverage from UI tests:** $percent" >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          files: coverage/app-ui.lcov
+          flags: app
+          use_oidc: true
+          fail_ci_if_error: false
       - name: Report test failures
         if: failure()
         run: scripts/xcresult-failures.sh build/app-ui.xcresult
