@@ -196,13 +196,17 @@ extension DatabaseIntegrationTests {
         func eventStreamSubscribes() async throws {
             try await withMigratedApp { app in
                 let user = AuthenticatedUser(userID: UUID(), deviceID: UUID())
-                try await RequestContext.$user.withValue(user) {
-                    guard case .ok = try await APIHandler(app: app).streamEvents(.init()) else {
-                        Issue.record("Expected the stream to open")
-                        return
-                    }
+                // Hold the response while asserting: dropping its body ends the stream,
+                // which unsubscribes.
+                let output = try await RequestContext.$user.withValue(user) {
+                    try await APIHandler(app: app).streamEvents(.init())
                 }
-                #expect(await app.eventHub.subscriberCount == 1)
+                let subscribers = await app.eventHub.subscriberCount
+                #expect(subscribers == 1)
+                guard case .ok = output else {
+                    Issue.record("Expected the stream to open")
+                    return
+                }
             }
         }
     }
