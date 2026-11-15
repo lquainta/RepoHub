@@ -72,6 +72,39 @@ struct RepositoryActionsTests {
         #expect(actions.failures.first?.message.contains("diverged") == true)
     }
 
+    @Test("Fetching selected repositories fetches only those and reports them changed")
+    func fetchSelected() async throws {
+        let git = FakeGit()
+        let actions = RepositoryActions(git: git, workspace: FakeWorkspace(), defaults: try makeDefaults())
+        var changed: [String] = []
+        actions.onRepositoriesChanged = { changed = $0 }
+
+        await actions.fetch(["/repos/api", "/repos/web"])
+
+        #expect(await git.actionLog.sorted() == ["fetch /repos/api", "fetch /repos/web"])
+        #expect(Set(changed) == ["/repos/api", "/repos/web"])
+        #expect(actions.failures.isEmpty)
+    }
+
+    @Test("A pull without an upstream says so")
+    func pullWithoutUpstream() async throws {
+        let git = FakeGit()
+        await git.setActionFailure(
+            .commandFailed(
+                command: "git pull --ff-only --quiet",
+                exitCode: 1,
+                stderr: "There is no tracking information for the current branch."
+            ),
+            for: "/repos/api"
+        )
+        let actions = RepositoryActions(git: git, workspace: FakeWorkspace(), defaults: try makeDefaults())
+
+        await actions.pull(["/repos/api"])
+
+        #expect(actions.failures.map(\.repository) == ["api"])
+        #expect(actions.failures.first?.message.contains("no upstream") == true)
+    }
+
     @Test("Open actions use the preferred editor and terminal")
     func openUsesPreferences() async throws {
         let workspace = FakeWorkspace()

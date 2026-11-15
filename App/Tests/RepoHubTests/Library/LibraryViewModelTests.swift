@@ -314,6 +314,50 @@ struct LibraryViewModelScopeTests {
         #expect(model.visibleRows.count == 3)
     }
 
+    @Test("Repositories are added to and removed from a group, and know which groups contain them")
+    func groupMembership() async throws {
+        let model = try await makeModel()
+        model.createGroup(named: "Work")
+        model.createGroup(named: "School", adding: ["/dev/api"])
+
+        model.add(["/dev/api", "/dev/web"], toGroup: "Work")
+        #expect(model.groupNames(containing: "/dev/api").sorted() == ["School", "Work"])
+        #expect(model.groupNames(containing: "/dev/web") == ["Work"])
+
+        model.remove(["/dev/api"], fromGroup: "Work")
+        #expect(model.groupNames(containing: "/dev/api") == ["School"])
+        #expect(model.errorMessage == nil)
+    }
+
+    @Test("Changing a group that no longer exists does nothing")
+    func unknownGroup() async throws {
+        let model = try await makeModel()
+        model.createGroup(named: "Work", adding: ["/dev/api"])
+        model.scope = .group("Work")
+
+        model.renameGroup("Gone", to: "Job")
+        model.deleteGroup("Gone")
+        model.add(["/dev/web"], toGroup: "Gone")
+        model.remove(["/dev/api"], fromGroup: "Gone")
+
+        #expect(model.groups.map(\.name) == ["Work"])
+        #expect(model.groupNames(containing: "/dev/api") == ["Work"])
+        #expect(model.scope == .group("Work"))
+        #expect(model.errorMessage == nil)
+    }
+
+    @Test("Renaming a group onto another group's name is reported and changes nothing")
+    func renameOntoExisting() async throws {
+        let model = try await makeModel()
+        model.createGroup(named: "Work")
+        model.createGroup(named: "School")
+
+        model.renameGroup("Work", to: "School")
+
+        #expect(model.groups.map(\.name).sorted() == ["School", "Work"])
+        #expect(model.errorMessage != nil)
+    }
+
     @Test("A duplicate group name is reported instead of created")
     func duplicateReported() async throws {
         let model = try await makeModel()
