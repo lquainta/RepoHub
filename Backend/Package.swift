@@ -18,6 +18,8 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-crypto.git", from: "4.0.0"),
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.101.0"),
         .package(path: "../Packages/RepoHubCore"),
+        // `swift package generate-documentation` (#56); not linked into anything.
+        .package(url: "https://github.com/swiftlang/swift-docc-plugin", from: "1.5.0"),
     ],
     targets: [
         // Types and server stubs generated from openapi/openapi.yaml (ADR 0008).
