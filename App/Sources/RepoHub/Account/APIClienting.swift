@@ -61,9 +61,11 @@ protocol APIClienting: Sendable {
 /// ``APIClienting`` backed by the client generated from the OpenAPI spec.
 struct RepoHubAPI: APIClienting {
     let baseURL: URL
+    /// Tests pass a session that answers from memory.
+    var session: URLSession = .shared
 
     private func client(_ accessToken: String? = nil) -> Client {
-        .repoHub(baseURL: baseURL, accessToken: accessToken)
+        .repoHub(baseURL: baseURL, accessToken: accessToken, session: session)
     }
 
     func startDeviceSignIn() async throws -> DeviceAuthorization {
