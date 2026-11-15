@@ -63,6 +63,9 @@ struct ConfigurationTests {
     @Test("Parses host, port, user, and database from the URL")
     func databaseURLParts() throws {
         let config = try DatabaseConfig(reader: reader(["DATABASE_URL": databaseURL]), environment: .development)
+        #expect(
+            config.postgres.coreConfiguration.options.additionalStartupParameters.contains { $0 == ("TimeZone", "UTC") }
+        )
         let core = config.postgres.coreConfiguration
         #expect(core.host == "db.example.com")
         #expect(core.port == 5432)

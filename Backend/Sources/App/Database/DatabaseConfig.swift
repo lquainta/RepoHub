@@ -26,9 +26,13 @@ struct DatabaseConfig: Sendable {
             let mode = environment == .production ? "require" : "disable"
             components.queryItems = (components.queryItems ?? []) + [URLQueryItem(name: "sslmode", value: mode)]
         }
-        guard let url = components.url, let postgres = try? SQLPostgresConfiguration(url: url) else {
+        guard let url = components.url, var postgres = try? SQLPostgresConfiguration(url: url) else {
             throw ConfigurationError.invalid(key: "DATABASE_URL", expected: "a postgres:// URL with a user and host")
         }
+        // Dates are sent as timestamps, and PostgreSQL converts a timestamp to a
+        // `date` in the session's time zone. Without this, a server or database
+        // whose default isn't UTC stores days west of UTC as the day before (#179).
+        postgres.coreConfiguration.options.additionalStartupParameters.append(("TimeZone", "UTC"))
         self.postgres = postgres
         maxConnectionsPerEventLoop = try reader.integer("DATABASE_MAX_CONNECTIONS", default: 4)
         guard maxConnectionsPerEventLoop > 0 else {
