@@ -304,8 +304,11 @@ struct RepoHubAPIErrorTests {
 
     let server = StubServer()
 
-    func api(_ status: Int, _ body: String = "") -> RepoHubAPI {
-        RepoHubAPI(baseURL: server.baseURL, session: server.session(answering: .init(status: status, body: body)))
+    func api(_ status: Int, _ body: String = "", contentType: String = "application/json") -> RepoHubAPI {
+        RepoHubAPI(
+            baseURL: server.baseURL,
+            session: server.session(answering: .init(status: status, body: body, contentType: contentType))
+        )
     }
 
     static let date = Fixture.date
@@ -393,11 +396,57 @@ struct RepoHubAPIErrorTests {
         }
     }
 
+    /// What a proxy answers while the backend restarts.
+    static let htmlPage = "<html><body><h1>502 Bad Gateway</h1></body></html>"
+
+    @Test("Every operation maps a 5xx to unavailable, even when the body is a proxy's HTML page (#186)")
+    func serverDown() async {
+        for operation in Self.operations {
+            for status in [500, 502, 503] {
+                await #expect(throws: APIError.unavailable("HTTP \(status)"), "\(operation.name) \(status)") {
+                    try await operation.call(api(status, Self.htmlPage, contentType: "text/html"))
+                }
+            }
+        }
+    }
+
+    @Test("An error whose body isn't the API's JSON still maps by its status")
+    func unreadableErrorBodies() async {
+        for operation in Self.operations {
+            await #expect(throws: APIError.rateLimited, "\(operation.name)") {
+                try await operation.call(api(429, Self.htmlPage, contentType: "text/html"))
+            }
+            await #expect(throws: APIError.unexpectedResponse(statusCode: 404), "\(operation.name)") {
+                try await operation.call(api(404, "Not Found", contentType: "text/plain"))
+            }
+        }
+        for operation in Self.operations where !Self.signInOperations.contains(operation.name) {
+            await #expect(throws: APIError.unauthorized, "\(operation.name)") {
+                try await operation.call(api(401, "{not json"))
+            }
+        }
+    }
+
+    @Test("Every operation reports a request that got no answer as a network error, with the system's reason")
+    func noAnswer() async {
+        // The stub has no answer for this host, so requests fail as they do offline.
+        let offline = RepoHubAPI(
+            baseURL: URL(string: "https://unknown.test") ?? server.baseURL,
+            session: server.session(answering: .init(status: 200))
+        )
+        let reason = URLError(.cannotFindHost).localizedDescription
+        for operation in Self.operations {
+            await #expect(throws: APIError.network(reason), "\(operation.name)") {
+                try await operation.call(offline)
+            }
+        }
+    }
+
     @Test("Each error has a message for the user")
     func errorDescriptions() {
         let errors: [APIError] = [
             .unauthorized, .signInRejected("denied"), .rateLimited, .unavailable("down"),
-            .unexpectedResponse(statusCode: 500),
+            .unexpectedResponse(statusCode: 500), .network("offline"),
         ]
         let messages = errors.compactMap(\.errorDescription)
         #expect(messages.count == errors.count)

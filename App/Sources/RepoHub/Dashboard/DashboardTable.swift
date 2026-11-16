@@ -97,6 +97,7 @@ struct DashboardTable<ExtraMenu: View>: View {
                 TableColumn("GitHub", value: \.gitHubSortKey) { row in
                     if let gitHub = row.gitHub, gitHub.error == nil {
                         GitHubBadges(status: gitHub, branch: row.currentBranch)
+                            .fixedSize()
                     }
                 }
                 .width(min: DashboardColumn.gitHub.minWidth, ideal: 100)

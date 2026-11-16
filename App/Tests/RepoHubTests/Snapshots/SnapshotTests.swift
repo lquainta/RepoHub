@@ -33,28 +33,93 @@ func assertSnapshots(
     line: UInt = #line,
     column: UInt = #column
 ) {
-    for language in ["en", "es"] {
-        for dark in [false, true] {
-            let host = NSHostingView(
-                rootView:
-                    view
-                    .environment(\.locale, Locale(identifier: language))
-                    .frame(width: size.width, height: size.height)
-                    .background(Color(nsColor: .windowBackgroundColor))
-            )
-            host.frame = CGRect(origin: .zero, size: size)
-            host.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
-            assertSnapshot(
-                of: host,
-                as: .image(precision: 1, perceptualPrecision: 0.98),
-                named: "\(language)-\(dark ? "dark" : "light")",
-                fileID: fileID,
-                file: filePath,
-                testName: testName,
-                line: line,
-                column: column
-            )
+    for variant in SnapshotVariant.all {
+        assertSnapshot(
+            of: variant.host(view, size: size),
+            as: .image(precision: 1, perceptualPrecision: 0.98),
+            named: variant.name,
+            fileID: fileID,
+            file: filePath,
+            testName: testName,
+            line: line,
+            column: column
+        )
+    }
+}
+
+/// Like ``assertSnapshots(of:size:fileID:file:testName:line:column:)``, for
+/// views that only draw fully in a window (`Table` creates its rows there) or
+/// that load when they appear: each is put in an offscreen window and given
+/// time to settle, until `isSettled` returns `true`.
+@MainActor
+func assertWindowSnapshots(
+    of view: some View,
+    size: CGSize,
+    isSettled: @MainActor () -> Bool = { true },
+    fileID: StaticString = #fileID,
+    file filePath: StaticString = #filePath,
+    testName: String = #function,
+    line: UInt = #line,
+    column: UInt = #column
+) async throws {
+    for variant in SnapshotVariant.all {
+        let host = variant.host(view, size: size)
+        let window = NSWindow(
+            contentRect: CGRect(origin: .zero, size: size),
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: false
+        )
+        window.isReleasedWhenClosed = false
+        window.appearance = host.appearance
+        window.contentView = host
+        defer { window.close() }
+        // At least two passes: one for `.task` and `onGeometryChange` to run,
+        // one for the layout they cause.
+        var passes = 0
+        while passes < 2 || !isSettled() {
+            host.layoutSubtreeIfNeeded()
+            try await Task.sleep(for: .milliseconds(50))
+            passes += 1
+            try #require(passes < 100, "The view never settled")
         }
+        host.layoutSubtreeIfNeeded()
+        assertSnapshot(
+            of: host,
+            as: .image(precision: 1, perceptualPrecision: 0.98),
+            named: variant.name,
+            fileID: fileID,
+            file: filePath,
+            testName: testName,
+            line: line,
+            column: column
+        )
+    }
+}
+
+/// A language and appearance to render a snapshot in.
+@MainActor
+struct SnapshotVariant {
+    let language: String
+    let isDark: Bool
+
+    static let all = ["en", "es"].flatMap { language in
+        [false, true].map { SnapshotVariant(language: language, isDark: $0) }
+    }
+
+    var name: String { "\(language)-\(isDark ? "dark" : "light")" }
+
+    func host(_ view: some View, size: CGSize) -> NSView {
+        let host = NSHostingView(
+            rootView:
+                view
+                .environment(\.locale, Locale(identifier: language))
+                .frame(width: size.width, height: size.height)
+                .background(Color(nsColor: .windowBackgroundColor))
+        )
+        host.frame = CGRect(origin: .zero, size: size)
+        host.appearance = NSAppearance(named: isDark ? .darkAqua : .aqua)
+        return host
     }
 }
 

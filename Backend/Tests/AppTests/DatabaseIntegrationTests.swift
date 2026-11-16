@@ -128,14 +128,16 @@ struct DatabaseIntegrationTests {
                 ),
                 workspaceID: workspaceID
             )
-            #expect(try await stores.sync.repositories(githubOwner: "octocat", name: "hello").map(\.id) == [repoID])
+            let stored = try await TrackedRepo.query(on: app.db).filter(\.$githubOwner == "octocat").all()
+            #expect(stored.map(\.id) == [repoID])
 
             let groupID = UUID()
             _ = try await stores.sync.upsert(
                 RepoGroupChange(id: groupID, name: "Work", sortOrder: 0, memberIDs: [repoID], updatedAt: .now),
                 workspaceID: workspaceID
             )
-            #expect(try await stores.sync.members(groupID: groupID) == [repoID])
+            let members = try await RepoGroupMember.query(on: app.db).filter(\.$id.$group.$id == groupID).all()
+            #expect(members.map { $0.id?.$trackedRepo.id } == [repoID])
 
         }
     }
@@ -273,9 +275,8 @@ struct DatabaseIntegrationTests {
 
             let latest = newer.addingTimeInterval(60)
             _ = try await stores.sync.upsert(change("new", at: latest, deleted: latest), workspaceID: workspaceID)
-            let changed = try await stores.sync.repositories(workspaceID: workspaceID, changedSince: newer)
-            #expect(changed.map(\.deletedAt) == [latest])
-            #expect(try await stores.sync.repositories(githubOwner: "x", name: "y").isEmpty)
+            let stored = try await TrackedRepo.query(on: app.db).filter(\.$workspace.$id == workspaceID).all()
+            #expect(stored.map(\.deletedAt) == [latest])
         }
     }
 

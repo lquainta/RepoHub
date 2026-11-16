@@ -259,6 +259,7 @@ struct APIHandler: APIProtocol {
                 }
             }
             try await store.markProcessed(id: try event.requireID(), at: .now)
+            await app.webhookEventPruner.pruneIfDue(store, logger: app.logger)
         }
         return .accepted(.init())
     }

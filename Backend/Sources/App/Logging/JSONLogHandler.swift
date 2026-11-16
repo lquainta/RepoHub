@@ -42,33 +42,24 @@ struct JSONLogHandler: LogHandler {
         set { metadata[key] = newValue }
     }
 
-    // swiftlint:disable:next function_parameter_count
-    func log(
-        level: Logger.Level,
-        message: Logger.Message,
-        metadata explicit: Logger.Metadata?,
-        source: String,
-        file: String,
-        function: String,
-        line: UInt
-    ) {
+    func log(event: LogEvent) {
         // Precedence, lowest to highest: provider, handler, call site.
         var merged = metadataProvider?.get() ?? [:]
         merged.merge(metadata) { _, new in new }
-        merged.merge(explicit ?? [:]) { _, new in new }
+        merged.merge(event.metadata ?? [:]) { _, new in new }
 
         var object: [String: JSONLogValue] = [
             "timestamp": .string(Self.timestamp(Date())),
-            "level": .string(level.rawValue),
-            "message": .string(message.description),
+            "level": .string(event.level.rawValue),
+            "message": .string(event.message.description),
             "label": .string(label),
-            "source": .string(source),
+            "source": .string(event.source),
         ]
         if let requestID = merged.removeValue(forKey: "request-id") {
             object["request_id"] = .string(requestID.description)
         }
-        if level >= .warning {
-            object["file"] = .string("\(file):\(line)")
+        if event.level >= .warning {
+            object["file"] = .string("\(event.file):\(event.line)")
         }
         if !merged.isEmpty {
             object["metadata"] = .init(merged)
