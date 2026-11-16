@@ -1,4 +1,5 @@
 import Foundation
+import OpenAPIRuntime
 import RepoHubAPIClient
 import RepoHubCore
 
@@ -13,6 +14,8 @@ enum APIError: Error, Equatable, LocalizedError {
     case unavailable(String)
     /// The backend returned something the spec doesn't describe.
     case unexpectedResponse(statusCode: Int)
+    /// The request never got an answer: offline, timed out, or the host wasn't found.
+    case network(String)
 
     var errorDescription: String? {
         switch self {
@@ -26,6 +29,8 @@ enum APIError: Error, Equatable, LocalizedError {
             String(localized: "The RepoHub server is unavailable: \(reason)")
         case .unexpectedResponse(let statusCode):
             String(localized: "The RepoHub server sent an unexpected response (HTTP \(statusCode)).")
+        case .network(let reason):
+            String(localized: "Couldn't reach the RepoHub server: \(reason)")
         }
     }
 }
@@ -69,7 +74,7 @@ struct RepoHubAPI: APIClienting {
     }
 
     func startDeviceSignIn() async throws -> DeviceAuthorization {
-        switch try await client().startDeviceSignIn() {
+        switch try await Self.send({ try await client().startDeviceSignIn() }) {
         case .ok(let ok):
             let body = try ok.body.json
             guard let url = URL(string: body.verificationURI) else {
@@ -89,13 +94,13 @@ struct RepoHubAPI: APIClienting {
         case .serviceUnavailable(let response):
             throw APIError.unavailable(Self.reason(try? response.body.json))
         case .undocumented(let statusCode, _):
-            throw APIError.unexpectedResponse(statusCode: statusCode)
+            throw Self.unexpected(statusCode)
         }
     }
 
     func pollDeviceSignIn(deviceCode: String, deviceName: String) async throws -> DeviceSignInPoll {
         let request = Components.Schemas.DeviceTokenRequest(deviceCode: deviceCode, deviceName: deviceName)
-        switch try await client().pollDeviceSignIn(body: .json(request)) {
+        switch try await Self.send({ try await client().pollDeviceSignIn(body: .json(request)) }) {
         case .ok(let ok):
             return .signedIn(Session(try ok.body.json))
         case .accepted(let accepted):
@@ -109,12 +114,13 @@ struct RepoHubAPI: APIClienting {
         case .serviceUnavailable(let response):
             throw APIError.unavailable(Self.reason(try? response.body.json))
         case .undocumented(let statusCode, _):
-            throw APIError.unexpectedResponse(statusCode: statusCode)
+            throw Self.unexpected(statusCode)
         }
     }
 
     func refreshSession(refreshToken: String) async throws -> Session {
-        switch try await client().refreshSession(body: .json(.init(refreshToken: refreshToken))) {
+        switch try await Self.send({ try await client().refreshSession(body: .json(.init(refreshToken: refreshToken))) }
+        ) {
         case .ok(let ok):
             return Session(try ok.body.json)
         case .unauthorized:
@@ -122,12 +128,12 @@ struct RepoHubAPI: APIClienting {
         case .tooManyRequests:
             throw APIError.rateLimited
         case .undocumented(let statusCode, _):
-            throw APIError.unexpectedResponse(statusCode: statusCode)
+            throw Self.unexpected(statusCode)
         }
     }
 
     func signOut(accessToken: String) async throws {
-        switch try await client(accessToken).signOut() {
+        switch try await Self.send({ try await client(accessToken).signOut() }) {
         case .noContent:
             return
         case .unauthorized:
@@ -135,12 +141,12 @@ struct RepoHubAPI: APIClienting {
         case .tooManyRequests:
             throw APIError.rateLimited
         case .undocumented(let statusCode, _):
-            throw APIError.unexpectedResponse(statusCode: statusCode)
+            throw Self.unexpected(statusCode)
         }
     }
 
     func currentUser(accessToken: String) async throws -> UserProfile {
-        switch try await client(accessToken).getCurrentUser() {
+        switch try await Self.send({ try await client(accessToken).getCurrentUser() }) {
         case .ok(let ok):
             return UserProfile(try ok.body.json)
         case .unauthorized:
@@ -148,7 +154,7 @@ struct RepoHubAPI: APIClienting {
         case .tooManyRequests:
             throw APIError.rateLimited
         case .undocumented(let statusCode, _):
-            throw APIError.unexpectedResponse(statusCode: statusCode)
+            throw Self.unexpected(statusCode)
         }
     }
 
@@ -161,7 +167,7 @@ struct RepoHubAPI: APIClienting {
                 .init(owner: $0.repository.owner, name: $0.repository.name, branch: $0.branch)
             }
         )
-        switch try await client(accessToken).getRepositoryStatuses(body: .json(body)) {
+        switch try await Self.send({ try await client(accessToken).getRepositoryStatuses(body: .json(body)) }) {
         case .ok(let ok):
             return try ok.body.json.repositories.map(GitHubRepositoryStatus.init)
         case .badRequest(let response):
@@ -171,12 +177,12 @@ struct RepoHubAPI: APIClienting {
         case .tooManyRequests:
             throw APIError.rateLimited
         case .undocumented(let statusCode, _):
-            throw APIError.unexpectedResponse(statusCode: statusCode)
+            throw Self.unexpected(statusCode)
         }
     }
 
     func workspace(since: Date?, accessToken: String) async throws -> SyncedWorkspace {
-        switch try await client(accessToken).getWorkspace(query: .init(since: since)) {
+        switch try await Self.send({ try await client(accessToken).getWorkspace(query: .init(since: since)) }) {
         case .ok(let ok):
             let body = try ok.body.json
             return SyncedWorkspace(
@@ -189,7 +195,7 @@ struct RepoHubAPI: APIClienting {
         case .tooManyRequests:
             throw APIError.rateLimited
         case .undocumented(let statusCode, _):
-            throw APIError.unexpectedResponse(statusCode: statusCode)
+            throw Self.unexpected(statusCode)
         }
     }
 
@@ -198,7 +204,7 @@ struct RepoHubAPI: APIClienting {
             staleBranchDays: settings.staleBranchDays,
             updatedAt: settings.updatedAt
         )
-        switch try await client(accessToken).updateWorkspaceSettings(body: .json(body)) {
+        switch try await Self.send({ try await client(accessToken).updateWorkspaceSettings(body: .json(body)) }) {
         case .ok(let ok):
             return SyncedSettings(try ok.body.json)
         case .unauthorized:
@@ -206,7 +212,7 @@ struct RepoHubAPI: APIClienting {
         case .tooManyRequests:
             throw APIError.rateLimited
         case .undocumented(let statusCode, _):
-            throw APIError.unexpectedResponse(statusCode: statusCode)
+            throw Self.unexpected(statusCode)
         }
     }
 
@@ -219,7 +225,9 @@ struct RepoHubAPI: APIClienting {
             updatedAt: group.updatedAt,
             deletedAt: group.deletedAt
         )
-        switch try await client(accessToken).putGroup(path: .init(groupID: group.id.uuidString), body: .json(body)) {
+        switch try await Self.send({
+            try await client(accessToken).putGroup(path: .init(groupID: group.id.uuidString), body: .json(body))
+        }) {
         case .ok(let ok):
             guard let stored = SyncedGroup(try ok.body.json) else {
                 throw APIError.unexpectedResponse(statusCode: 200)
@@ -232,15 +240,17 @@ struct RepoHubAPI: APIClienting {
         case .tooManyRequests:
             throw APIError.rateLimited
         case .undocumented(let statusCode, _):
-            throw APIError.unexpectedResponse(statusCode: statusCode)
+            throw Self.unexpected(statusCode)
         }
     }
 
     func deleteGroup(id: UUID, deletedAt: Date, accessToken: String) async throws {
-        let output = try await client(accessToken).deleteGroup(
-            path: .init(groupID: id.uuidString),
-            query: .init(deletedAt: deletedAt)
-        )
+        let output = try await Self.send {
+            try await client(accessToken).deleteGroup(
+                path: .init(groupID: id.uuidString),
+                query: .init(deletedAt: deletedAt)
+            )
+        }
         switch output {
         case .noContent:
             return
@@ -249,7 +259,7 @@ struct RepoHubAPI: APIClienting {
         case .tooManyRequests:
             throw APIError.rateLimited
         case .undocumented(let statusCode, _):
-            throw APIError.unexpectedResponse(statusCode: statusCode)
+            throw Self.unexpected(statusCode)
         }
     }
 
@@ -266,7 +276,7 @@ struct RepoHubAPI: APIClienting {
                 )
             }
         )
-        switch try await client(accessToken).uploadSnapshots(body: .json(body)) {
+        switch try await Self.send({ try await client(accessToken).uploadSnapshots(body: .json(body)) }) {
         case .noContent:
             return
         case .badRequest(let response):
@@ -276,12 +286,12 @@ struct RepoHubAPI: APIClienting {
         case .tooManyRequests:
             throw APIError.rateLimited
         case .undocumented(let statusCode, _):
-            throw APIError.unexpectedResponse(statusCode: statusCode)
+            throw Self.unexpected(statusCode)
         }
     }
 
     func activity(days: Int, accessToken: String) async throws -> [RepositoryActivity] {
-        switch try await client(accessToken).getActivity(query: .init(days: days)) {
+        switch try await Self.send({ try await client(accessToken).getActivity(query: .init(days: days)) }) {
         case .ok(let ok):
             return try ok.body.json.repositories.map { repository in
                 RepositoryActivity(
@@ -295,13 +305,13 @@ struct RepoHubAPI: APIClienting {
         case .tooManyRequests:
             throw APIError.rateLimited
         case .undocumented(let statusCode, _):
-            throw APIError.unexpectedResponse(statusCode: statusCode)
+            throw Self.unexpected(statusCode)
         }
     }
 
     func repositoryChanges(accessToken: String) async throws -> AsyncThrowingStream<GitHubRepository, any Error> {
         let changes: AsyncThrowingStream<Components.Schemas.RepositoryChanged, any Error>
-        switch try await client(accessToken).streamEvents() {
+        switch try await Self.send({ try await client(accessToken).streamEvents() }) {
         case .ok(let ok):
             changes = try ok.repositoryChanges()
         case .unauthorized:
@@ -309,7 +319,7 @@ struct RepoHubAPI: APIClienting {
         case .tooManyRequests:
             throw APIError.rateLimited
         case .undocumented(let statusCode, _):
-            throw APIError.unexpectedResponse(statusCode: statusCode)
+            throw Self.unexpected(statusCode)
         }
         return AsyncThrowingStream { continuation in
             let task = Task {
@@ -323,6 +333,41 @@ struct RepoHubAPI: APIClienting {
                 }
             }
             continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
+    /// Runs a generated client call, turning its own failures into ``APIError``.
+    ///
+    /// The client throws before returning a response when the body isn't what
+    /// the spec says (an HTML error page from a proxy, for example) or when
+    /// the request never got an answer.
+    private static func send<Output>(_ call: () async throws -> Output) async throws -> Output {
+        do {
+            return try await call()
+        } catch let error as ClientError {
+            if let response = error.response {
+                throw unexpected(response.status.code)
+            }
+            if let failure = error.underlyingError as? URLError {
+                if failure.code == .cancelled {
+                    throw CancellationError()
+                }
+                throw APIError.network(failure.localizedDescription)
+            }
+            throw error
+        }
+    }
+
+    /// The error for a status an operation doesn't handle itself, or whose
+    /// body couldn't be read: the session ended (401), too many requests
+    /// (429), the server is down (5xx), or something the spec doesn't describe.
+    private static func unexpected(_ statusCode: Int) -> APIError {
+        switch statusCode {
+        case 401: .unauthorized
+        case 429: .rateLimited
+        // A status code, never translated.
+        case 500...599: .unavailable("HTTP \(statusCode)")
+        default: .unexpectedResponse(statusCode: statusCode)
         }
     }
 

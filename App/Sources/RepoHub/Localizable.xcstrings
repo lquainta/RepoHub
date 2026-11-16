@@ -989,6 +989,16 @@
         }
       }
     },
+    "Couldn't reach the RepoHub server: %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo conectar con el servidor de RepoHub: %@"
+          }
+        }
+      }
+    },
     "Couldn't remove %@.": {
       "localizations": {
         "es": {
