@@ -166,5 +166,32 @@ extension DatabaseIntegrationTests {
                 try await app.autoRevert()
             }
         }
+
+        @Test("Storing a delivery deletes events older than 30 days")
+        func webhookPrunesOldEvents() async throws {
+            try await withApp { app in
+                try await configure(app, reader: TestDatabase.reader(["GITHUB_WEBHOOK_SECRET": "s3cret"]))
+                try await app.autoRevert()
+                try await app.autoMigrate()
+                for (delivery, age) in [("expired", 31.0), ("recent", 29.0)] {
+                    let event = WebhookEvent(
+                        deliveryID: delivery,
+                        event: "push",
+                        repoFullName: "octocat/hello",
+                        payload: .object([:]),
+                        receivedAt: .now.addingTimeInterval(-age * 86_400)
+                    )
+                    try await event.save(on: app.db)
+                }
+
+                let body = #"{"action":"completed","repository":{"full_name":"octocat/hello"}}"#
+                let response = try await app.sendWebhook(body, delivery: "new", secret: "s3cret")
+                #expect(response.status == .accepted)
+
+                let remaining = try await WebhookEvent.query(on: app.db).all().map(\.deliveryID)
+                #expect(Set(remaining) == ["recent", "new"])
+                try await app.autoRevert()
+            }
+        }
     }
 }

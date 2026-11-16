@@ -9,6 +9,7 @@ func configure(_ app: Application, reader: EnvironmentReader = EnvironmentReader
     app.configureDatabase(app.config.database)
     try app.configureCache(redisURL: app.config.redisURL)
     app.eventHub = EventHub()
+    app.webhookEventPruner = WebhookEventPruner()
     await app.configureSecurity(app.config.security)
     app.configureErrorReporting(app.config)
     app.asyncCommands.use(SeedCommand(), as: "seed")
