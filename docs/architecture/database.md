@@ -194,7 +194,7 @@ Daily activity per repository, uploaded by the app for the history chart (#81).
 Unique: `(tracked_repo_id, day)`. Re-uploading a day updates it (upsert). That unique index also serves the chart's range query (`WHERE tracked_repo_id = $1 AND day >= $2`).
 
 ### `webhook_events`
-GitHub deliveries received at the webhook endpoint (#77). Kept for idempotency and debugging; pruned after 30 days.
+GitHub deliveries received at the webhook endpoint (#77). Kept for idempotency and debugging, and **pruned after 30 days**: when a new delivery is stored, `WebhookEventPruner` deletes events received more than 30 days ago, at most once an hour per process (#187). A failed prune is logged and retried later; it never fails the delivery.
 
 | Column | Type | Constraints | Notes |
 | --- | --- | --- | --- |
