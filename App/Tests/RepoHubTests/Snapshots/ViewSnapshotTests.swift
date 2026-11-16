@@ -132,8 +132,8 @@ struct ViewSnapshotTests {
 
 /// Snapshots of the main window's empty states and of error states elsewhere.
 ///
-/// Offscreen, the sidebar draws its selected row as a solid block; the rest of
-/// the window is what these check.
+/// Offscreen, the sidebar's material draws as a blank panel, so the main
+/// window snapshots check the dashboard and details columns only.
 @MainActor
 @Suite("State snapshots", .enabled(if: SnapshotReference.matchesThisMac, "References are recorded on macOS 26 (CI)"))
 struct StateSnapshotTests {
