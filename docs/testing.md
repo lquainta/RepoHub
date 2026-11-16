@@ -92,7 +92,9 @@ RepoHub has three kinds of tests. Every PR must keep all of them green in CI.
 
   The GitHub client (`VaporGitHubAPI`) is tested against a stub HTTP client: headers and token, ETag and `304`, rate-limit headers (`403` with no remaining requests, and `429`) mapped to `rateLimited`, other errors mapped, and **pagination** (`Link: rel="next"`, up to 5 pages for open pull requests, never followed to another host).
 
-- **Snapshot tests** (`App/Tests/RepoHubTests/Snapshots`, [swift-snapshot-testing](https://github.com/pointfreeco/swift-snapshot-testing)) render key views (empty state, status labels, the GitHub section, Account settings) in **light and dark mode, in English and Spanish**, and compare them with the reference images in `__Snapshots__/`. A visual change fails the test until the references are updated in the same PR.
+- **Snapshot tests** (`App/Tests/RepoHubTests/Snapshots`, [swift-snapshot-testing](https://github.com/pointfreeco/swift-snapshot-testing)) render key views (empty states, status labels, the GitHub section and badges, Account settings, the menu bar panel, the dashboard table, the Activity window, and error states) in **light and dark mode, in English and Spanish**, and compare them with the reference images in `__Snapshots__/`. A visual change fails the test until the references are updated in the same PR.
+
+  Views that only draw fully in a window (`Table` creates its rows there) or that load when they appear use `assertWindowSnapshots`, which hosts them in an offscreen window and waits for them to settle. Keep anything that changes by itself out of a snapshot: spinners, and relative dates such as "2 days ago".
 
   Text renders a little differently on each macOS version, so **references are recorded on CI's runner (macOS 26)** and the tests are skipped on other versions. To add or update one:
   1. Delete the old image (or add a new test) and push.
