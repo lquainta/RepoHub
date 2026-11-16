@@ -32,6 +32,32 @@ struct AccountModelTests {
         )
     }
 
+    /// A Keychain that can't be read or changed.
+    private struct LockedCredentialStore: CredentialStoring {
+        func load() throws -> StoredCredentials? { throw KeychainError(status: errSecInteractionNotAllowed) }
+        func save(_ credentials: StoredCredentials) throws { throw KeychainError(status: errSecInteractionNotAllowed) }
+        func delete() throws { throw KeychainError(status: errSecInteractionNotAllowed) }
+    }
+
+    @Test("When the Keychain can't be read, the user is signed out and told why")
+    func keychainUnreadable() async {
+        let model = AccountModel(api: api, credentials: LockedCredentialStore(), workspace: workspace)
+        await model.restore()
+
+        #expect(model.user == nil)
+        #expect(model.errorMessage == KeychainError(status: errSecInteractionNotAllowed).localizedDescription)
+        #expect(await api.calls.isEmpty)
+    }
+
+    @Test("Signing out when the Keychain can't be changed still signs out, and says why")
+    func keychainUndeletable() async {
+        let model = AccountModel(api: api, credentials: LockedCredentialStore(), workspace: workspace)
+        await model.signOut()
+
+        #expect(model.user == nil)
+        #expect(model.errorMessage?.contains("Keychain") == true)
+    }
+
     @Test("Sign-in shows the code, opens GitHub, polls at the server's interval, and stores the session")
     func signIn() async throws {
         await api.setPolls([

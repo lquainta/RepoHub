@@ -115,8 +115,18 @@ actor FakeGit: GitServicing {
         (commitDateLists[repository.path] ?? []).filter { $0 >= date }
     }
 
+    private var branchFailure: (any Error)?
+
+    /// Makes finding and deleting branches fail with `error`.
+    func setBranchFailure(_ error: (any Error)?) {
+        branchFailure = error
+    }
+
     func staleBranches(of repository: URL, inactiveAfterDays: Int?) async throws -> StaleBranchReport {
-        staleReport
+        if let branchFailure {
+            throw branchFailure
+        }
+        return staleReport
     }
 
     func deleteBranches(
@@ -125,6 +135,9 @@ actor FakeGit: GitServicing {
         force: Bool,
         deleteRemote: Bool
     ) async throws -> [BranchDeletionResult] {
+        if let branchFailure {
+            throw branchFailure
+        }
         deletions.append(Deletion(names: branches.map(\.name), force: force, deleteRemote: deleteRemote))
         return branches.map { branch in
             undeletable.contains(branch.name)

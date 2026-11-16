@@ -32,6 +32,32 @@ struct StaleBranchModelTests {
         return (model, git)
     }
 
+    @Test("A repository whose branches can't be read shows why, for git errors and others")
+    func loadFails() async {
+        let git = FakeGit()
+        await git.setBranchFailure(GitError.notARepository(path: "/repos/api"))
+        let model = StaleBranchModel(path: "/repos/api", git: git, inactiveAfterDays: 90)
+        await model.load()
+        #expect(model.phase == .failed(StatusText.message(for: .notARepository(path: "/repos/api"))))
+
+        await git.setBranchFailure(CocoaError(.fileReadNoPermission))
+        await model.load()
+        #expect(model.phase == .failed(CocoaError(.fileReadNoPermission).localizedDescription))
+    }
+
+    @Test("A delete that fails outright shows why and can't be mistaken for finished")
+    func deleteFails() async {
+        let (model, git) = await makeModel()
+        await git.setBranchFailure(GitError.timedOut(command: "git branch"))
+        await model.deleteSelected()
+        #expect(model.phase == .failed(StatusText.message(for: .timedOut(command: "git branch"))))
+        #expect(model.deleted.isEmpty)
+
+        await git.setBranchFailure(CocoaError(.fileWriteNoPermission))
+        await model.deleteSelected()
+        #expect(model.phase == .failed(CocoaError(.fileWriteNoPermission).localizedDescription))
+    }
+
     @Test("Loading preselects only merged branches")
     func preselectsMerged() async {
         let (model, _) = await makeModel()
