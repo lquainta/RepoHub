@@ -10,17 +10,11 @@ protocol SyncStore: Sendable {
     /// The user's default workspace, created on first use.
     func defaultWorkspace(userID: UUID) async throws -> Workspace
 
-    /// Repositories changed after `since` (all if `nil`), including deletions.
-    func repositories(workspaceID: UUID, changedSince since: Date?) async throws -> [TrackedRepo]
     /// Applies a repository change if it's newer; returns the stored row.
     func upsert(_ change: TrackedRepoChange, workspaceID: UUID) async throws -> TrackedRepo
-    /// Repositories with this GitHub owner and name, in every workspace (webhook fan-out).
-    func repositories(githubOwner: String, name: String) async throws -> [TrackedRepo]
 
     /// Applies a group change (including its members) if it's newer; returns the stored row.
     func upsert(_ change: RepoGroupChange, workspaceID: UUID) async throws -> RepoGroup
-    /// The repository ids in a group.
-    func members(groupID: UUID) async throws -> [UUID]
 }
 
 /// A repository change from a client.
@@ -61,14 +55,6 @@ struct FluentSyncStore: SyncStore {
         return workspace
     }
 
-    func repositories(workspaceID: UUID, changedSince since: Date?) async throws -> [TrackedRepo] {
-        var query = TrackedRepo.query(on: database).filter(\.$workspace.$id == workspaceID)
-        if let since {
-            query = query.filter(\.$updatedAt > since)
-        }
-        return try await query.sort(\.$updatedAt).all()
-    }
-
     func upsert(_ change: TrackedRepoChange, workspaceID: UUID) async throws -> TrackedRepo {
         if let existing = try await TrackedRepo.query(on: database)
             .filter(\.$id == change.id)
@@ -91,14 +77,6 @@ struct FluentSyncStore: SyncStore {
         apply(change, to: repository)
         try await repository.create(on: database)
         return repository
-    }
-
-    func repositories(githubOwner: String, name: String) async throws -> [TrackedRepo] {
-        try await TrackedRepo.query(on: database)
-            .filter(\.$githubOwner == githubOwner)
-            .filter(\.$githubName == name)
-            .filter(\.$deletedAt == nil)
-            .all()
     }
 
     func upsert(_ change: RepoGroupChange, workspaceID: UUID) async throws -> RepoGroup {
@@ -130,14 +108,6 @@ struct FluentSyncStore: SyncStore {
             }
             return group
         }
-    }
-
-    func members(groupID: UUID) async throws -> [UUID] {
-        try await RepoGroupMember.query(on: database)
-            .filter(\.$id.$group.$id == groupID)
-            .all()
-            .compactMap { $0.id?.$trackedRepo.id }
-            .sorted { $0.uuidString < $1.uuidString }
     }
 
     private func apply(_ change: TrackedRepoChange, to repository: TrackedRepo) {
