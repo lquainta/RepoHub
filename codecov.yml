@@ -36,6 +36,8 @@ flags:
 
 ignore:
   - "**/Tests/**"
+  # The process entry point: it only runs when the server starts.
+  - "Backend/Sources/App/entrypoint.swift"
 
 comment:
   layout: "condensed_header, diff, flags, files"

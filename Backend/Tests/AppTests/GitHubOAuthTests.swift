@@ -74,6 +74,23 @@ struct GitHubOAuthTests {
         }
     }
 
+    @Test("A failed device code or user request throws with the status, never the body")
+    func failedRequests() async throws {
+        try await withApp { app in
+            let client = ScriptedClient(
+                eventLoop: app.eventLoopGroup.any(),
+                [(.serviceUnavailable, #"{"secret":"body"}"#), (.unauthorized, #"{"secret":"body"}"#)]
+            )
+            let oauth = VaporGitHubOAuth(client: client, clientID: "Ov23li")
+            await #expect(throws: GitHubOAuthError(reason: "Device code request failed with 503")) {
+                try await oauth.requestDeviceCode(scopes: ["repo"])
+            }
+            await #expect(throws: GitHubOAuthError(reason: "User request failed with 401")) {
+                try await oauth.user(token: "gho_token")
+            }
+        }
+    }
+
     @Test(
         "Maps every device flow response",
         arguments: [

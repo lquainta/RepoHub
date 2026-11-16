@@ -8,9 +8,7 @@ extension APIHandler {
     private var sync: WorkspaceSync { WorkspaceSync(database: app.db) }
 
     func getWorkspace(_ input: Operations.getWorkspace.Input) async throws -> Operations.getWorkspace.Output {
-        guard let user = RequestContext.user else {
-            return .unauthorized(.init(body: .json(Self.error("Not signed in."))))
-        }
+        let user = try Self.requireUser()
         // Read the clock first, so a group stored while this runs is returned next time.
         let serverTime = Date.now
         let settings = try await sync.settings(userID: user.userID)
@@ -27,9 +25,7 @@ extension APIHandler {
     func updateWorkspaceSettings(
         _ input: Operations.updateWorkspaceSettings.Input
     ) async throws -> Operations.updateWorkspaceSettings.Output {
-        guard let user = RequestContext.user else {
-            return .unauthorized(.init(body: .json(Self.error("Not signed in."))))
-        }
+        let user = try Self.requireUser()
         let body: Components.Schemas.SyncedSettings
         switch input.body {
         case .json(let json): body = json
@@ -43,11 +39,10 @@ extension APIHandler {
     }
 
     func putGroup(_ input: Operations.putGroup.Input) async throws -> Operations.putGroup.Output {
-        guard let user = RequestContext.user else {
-            return .unauthorized(.init(body: .json(Self.error("Not signed in."))))
-        }
-        guard case .json(let body) = input.body else {
-            return .badRequest(.init(body: .json(Self.error("Expected a JSON body."))))
+        let user = try Self.requireUser()
+        let body: Components.Schemas.SyncedGroup
+        switch input.body {
+        case .json(let json): body = json
         }
         let name = body.name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let id = UUID(uuidString: body.id), UUID(uuidString: input.path.groupID) == id else {
@@ -73,9 +68,7 @@ extension APIHandler {
     }
 
     func deleteGroup(_ input: Operations.deleteGroup.Input) async throws -> Operations.deleteGroup.Output {
-        guard let user = RequestContext.user else {
-            return .unauthorized(.init(body: .json(Self.error("Not signed in."))))
-        }
+        let user = try Self.requireUser()
         if let id = UUID(uuidString: input.path.groupID) {
             try await sync.delete(groupID: id, deletedAt: input.query.deletedAt, userID: user.userID)
         }

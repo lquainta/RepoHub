@@ -8,6 +8,7 @@ protocol WebhookEventStore: Sendable {
     ///
     /// - Returns: `false` for a duplicate delivery, which should be ignored.
     func insertIfNew(_ event: WebhookEvent) async throws -> Bool
+    /// Records that the cache was invalidated and clients were notified.
     func markProcessed(id: UUID, at date: Date) async throws
     /// Deletes events received before `date`; returns how many were deleted.
     @discardableResult

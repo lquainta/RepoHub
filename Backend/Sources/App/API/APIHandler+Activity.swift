@@ -6,9 +6,7 @@ import RepoHubAPI
 /// The activity history chart (#81).
 extension APIHandler {
     func getActivity(_ input: Operations.getActivity.Input) async throws -> Operations.getActivity.Output {
-        guard let user = RequestContext.user else {
-            return .unauthorized(.init(body: .json(Self.error("Not signed in."))))
-        }
+        let user = try Self.requireUser()
         let days = min(max(input.query.days ?? 30, 1), 365)
         let history = try await ActivityService(database: app.db).history(userID: user.userID, days: days)
         let repositories = history.map { activity in
@@ -22,9 +20,7 @@ extension APIHandler {
     }
 
     func uploadSnapshots(_ input: Operations.uploadSnapshots.Input) async throws -> Operations.uploadSnapshots.Output {
-        guard let user = RequestContext.user else {
-            return .unauthorized(.init(body: .json(Self.error("Not signed in."))))
-        }
+        let user = try Self.requireUser()
         let body: Components.Schemas.SnapshotUpload
         switch input.body {
         case .json(let json): body = json

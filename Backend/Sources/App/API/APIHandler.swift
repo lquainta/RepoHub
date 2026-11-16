@@ -77,8 +77,9 @@ struct APIHandler: APIProtocol {
 
     func pollDeviceSignIn(_ input: Operations.pollDeviceSignIn.Input) async throws -> Operations.pollDeviceSignIn.Output
     {
-        guard case .json(let request) = input.body else {
-            return .badRequest(.init(body: .json(Self.error("Expected a JSON body."))))
+        let request: Components.Schemas.DeviceTokenRequest
+        switch input.body {
+        case .json(let json): request = json
         }
         let name = request.deviceName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty, name.count <= 100, !request.deviceCode.isEmpty, request.deviceCode.count <= 200 else {
@@ -106,8 +107,9 @@ struct APIHandler: APIProtocol {
     }
 
     func refreshSession(_ input: Operations.refreshSession.Input) async throws -> Operations.refreshSession.Output {
-        guard case .json(let request) = input.body else {
-            return .unauthorized(.init(body: .json(Self.error("Expected a refresh token."))))
+        let request: Components.Schemas.RefreshRequest
+        switch input.body {
+        case .json(let json): request = json
         }
         do {
             return .ok(.init(body: .json(try Self.session(try await auth.refresh(refreshToken: request.refreshToken)))))
@@ -119,9 +121,7 @@ struct APIHandler: APIProtocol {
     }
 
     func signOut(_ input: Operations.signOut.Input) async throws -> Operations.signOut.Output {
-        guard let user = RequestContext.user else {
-            return .unauthorized(.init(body: .json(Self.error("Not signed in."))))
-        }
+        let user = try Self.requireUser()
         try await auth.signOut(user)
         return .noContent(.init())
     }
@@ -129,7 +129,8 @@ struct APIHandler: APIProtocol {
     // MARK: - Account
 
     func getCurrentUser(_ input: Operations.getCurrentUser.Input) async throws -> Operations.getCurrentUser.Output {
-        guard let current = RequestContext.user, let user = try await User.find(current.userID, on: app.db) else {
+        // The account can be deleted while its access token is still valid.
+        guard let user = try await User.find(try Self.requireUser().userID, on: app.db) else {
             return .unauthorized(.init(body: .json(Self.error("Not signed in."))))
         }
         return .ok(.init(body: .json(try Self.profile(user))))
@@ -140,13 +141,14 @@ struct APIHandler: APIProtocol {
     func getRepositoryStatuses(
         _ input: Operations.getRepositoryStatuses.Input
     ) async throws -> Operations.getRepositoryStatuses.Output {
-        guard let current = RequestContext.user, let user = try await User.find(current.userID, on: app.db),
+        guard let user = try await User.find(try Self.requireUser().userID, on: app.db),
             let token = try auth.githubToken(for: user)
         else {
             return .unauthorized(.init(body: .json(Self.error("Not signed in."))))
         }
-        guard case .json(let request) = input.body else {
-            return .badRequest(.init(body: .json(Self.error("Expected a JSON body."))))
+        let request: Components.Schemas.RepositoryStatusRequest
+        switch input.body {
+        case .json(let json): request = json
         }
         guard (1...100).contains(request.repositories.count) else {
             return .badRequest(.init(body: .json(Self.error("Send between 1 and 100 repositories."))))
@@ -173,9 +175,7 @@ struct APIHandler: APIProtocol {
     static let streamLifetime: Duration = .seconds(600)
 
     func streamEvents(_ input: Operations.streamEvents.Input) async throws -> Operations.streamEvents.Output {
-        guard let user = RequestContext.user else {
-            return .unauthorized(.init(body: .json(Self.error("Not signed in."))))
-        }
+        let user = try Self.requireUser()
         let changes = await app.eventHub.subscribe(user: user.userID)
         let events = Self.eventStream(changes)
         let body = HTTPBody(events.asEncodedServerSentEvents(), length: .unknown, iterationBehavior: .single)
@@ -226,8 +226,9 @@ struct APIHandler: APIProtocol {
         _ input: Operations.receiveGitHubWebhook.Input
     ) async throws -> Operations.receiveGitHubWebhook.Output {
         // The signature was verified against the raw body by WebhookSignatureMiddleware.
-        guard case .json(let container) = input.body else {
-            return .badRequest(.init(body: .json(Self.error("Expected a JSON payload."))))
+        let container: Operations.receiveGitHubWebhook.Input.Body.jsonPayload
+        switch input.body {
+        case .json(let json): container = json
         }
         let payload = try JSONDecoder().decode(JSONValue.self, from: JSONEncoder().encode(container))
         guard case .string(let fullName)? = payload["repository"]?["full_name"] else {
@@ -244,7 +245,8 @@ struct APIHandler: APIProtocol {
             repoFullName: fullName,
             payload: payload
         )
-        if try await FluentWebhookEventStore(database: app.db).insertIfNew(event) {
+        let store = FluentWebhookEventStore(database: app.db)
+        if try await store.insertIfNew(event) {
             let parts = fullName.split(separator: "/", maxSplits: 1).map(String.init)
             // Other events (stars, issues, ...) don't change what the app shows.
             if parts.count == 2, Self.liveEvents.contains(event.event) {
@@ -256,11 +258,24 @@ struct APIHandler: APIProtocol {
                     )
                 }
             }
+            try await store.markProcessed(id: try event.requireID(), at: .now)
         }
         return .accepted(.init())
     }
 
     // MARK: - Mapping
+
+    /// The signed-in user.
+    ///
+    /// ``AuthenticationMiddleware`` answers 401 for a protected operation
+    /// before its handler runs, so a missing user means an operation was
+    /// wrongly listed as public. Fail closed rather than serve it.
+    static func requireUser() throws -> AuthenticatedUser {
+        guard let user = RequestContext.user else {
+            throw Abort(.unauthorized, reason: "Not signed in.")
+        }
+        return user
+    }
 
     static func error(_ reason: String) -> Components.Schemas._Error {
         .init(error: true, reason: reason)

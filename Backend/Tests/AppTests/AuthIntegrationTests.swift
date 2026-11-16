@@ -161,6 +161,8 @@ extension DatabaseIntegrationTests {
                 let events = try await WebhookEvent.query(on: app.db).all()
                 #expect(events.map(\.deliveryID) == ["delivery-42"])
                 #expect(events.first?.action == "completed" && events.first?.repoFullName == "octocat/hello")
+                // Marked once the cache was invalidated and clients were notified.
+                #expect(events.first?.processedAt != nil)
                 try await app.autoRevert()
             }
         }
