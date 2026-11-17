@@ -1,5 +1,57 @@
 # Changelog
 
+## [0.3.0](https://github.com/lquainta/RepoHub/compare/v0.2.0...v0.3.0) (2026-11-17)
+
+
+### Features
+
+* **app:** adapt the main window to narrow and wide sizes ([#166](https://github.com/lquainta/RepoHub/issues/166)) ([2aa53ea](https://github.com/lquainta/RepoHub/commit/2aa53ea62c6a3f4cb49fbcd15c3bef92aaaab358))
+* **app:** notify about failing CI and review requests ([#142](https://github.com/lquainta/RepoHub/issues/142)) ([6d31c61](https://github.com/lquainta/RepoHub/commit/6d31c613a172438f6fe972ab7a89866dd274151a))
+* **app:** pass automated accessibility audits and document the practice ([#151](https://github.com/lquainta/RepoHub/issues/151)) ([b04737d](https://github.com/lquainta/RepoHub/commit/b04737dddef86446bfd018835e27ff9d33c4060f))
+* **app:** translate the app into Spanish ([#152](https://github.com/lquainta/RepoHub/issues/152)) ([f07d159](https://github.com/lquainta/RepoHub/commit/f07d159df99f0bdc40848b257daeb03bf3397a6a))
+* push CI and pull request changes to the app from GitHub webhooks ([#143](https://github.com/lquainta/RepoHub/issues/143)) ([2983a44](https://github.com/lquainta/RepoHub/commit/2983a44a50b6ac58943518adf0a2b0b92572e900))
+* report crashes and server errors to Sentry ([#148](https://github.com/lquainta/RepoHub/issues/148)) ([58b6093](https://github.com/lquainta/RepoHub/commit/58b6093eed1bd900e48261abece29d83862f2b78))
+* sync groups and settings between Macs ([#144](https://github.com/lquainta/RepoHub/issues/144)) ([f7f3564](https://github.com/lquainta/RepoHub/commit/f7f356488da7369427f2c867a592118dbbfe2c87))
+
+
+### Bug Fixes
+
+* **app:** give the dashboard the window's spare width instead of the details pane ([#197](https://github.com/lquainta/RepoHub/issues/197)) ([26abd78](https://github.com/lquainta/RepoHub/commit/26abd787304a9b7fd5f8f4298de547ebff0e064c))
+* **app:** show a clear error when the server is down or can't be reached ([#194](https://github.com/lquainta/RepoHub/issues/194)) ([275dea5](https://github.com/lquainta/RepoHub/commit/275dea53eebcc863fbe2d381e71c77586988cf44))
+* **backend:** delete webhook events older than 30 days ([#195](https://github.com/lquainta/RepoHub/issues/195)) ([0f21ede](https://github.com/lquainta/RepoHub/commit/0f21ede370b55b97ba72491d7b7ccae1e8c725b7))
+* **backend:** treat GitHub's 422 for an unknown ref as a branch without checks ([#182](https://github.com/lquainta/RepoHub/issues/182)) ([c10e5f1](https://github.com/lquainta/RepoHub/commit/c10e5f14128fa449a04320d95b46e8eace98e2a0))
+* **backend:** use UTC for every database session ([#181](https://github.com/lquainta/RepoHub/issues/181)) ([1a94b8d](https://github.com/lquainta/RepoHub/commit/1a94b8d1b6cd52e586773a7e42b8d31ae2a8d806))
+
+
+### Documentation
+
+* add architecture diagrams that are checked against the code ([#156](https://github.com/lquainta/RepoHub/issues/156)) ([ba1af64](https://github.com/lquainta/RepoHub/commit/ba1af64aeb9ebac505ae7b28ec5159788fd16896))
+* publish DocC documentation for RepoHubCore and the backend ([#157](https://github.com/lquainta/RepoHub/issues/157)) ([8d18318](https://github.com/lquainta/RepoHub/commit/8d18318594a28a4d4043461e47a54365eb5534b5))
+* write the README: what RepoHub does, and how to build, run, and test it ([#158](https://github.com/lquainta/RepoHub/issues/158)) ([2c2452e](https://github.com/lquainta/RepoHub/commit/2c2452e72b47faff7d3151448e3f21c5bcd88f85))
+
+
+### Tests
+
+* **app:** count the UI tests' coverage in the app's coverage report ([#176](https://github.com/lquainta/RepoHub/issues/176)) ([4ec47c3](https://github.com/lquainta/RepoHub/commit/4ec47c3556c457421f5d536f0ca297a173d158f7))
+* **app:** cover groups, branch cleanup failures, the Keychain store, and known apps ([#185](https://github.com/lquainta/RepoHub/issues/185)) ([5024a44](https://github.com/lquainta/RepoHub/commit/5024a4482c0dd21f5f894077a47ed483ee7a8c5b))
+* **app:** cover the API client's mapping of every response ([#177](https://github.com/lquainta/RepoHub/issues/177)) ([080838e](https://github.com/lquainta/RepoHub/commit/080838e4c931d15e09bbb20e8847ed57bd61930b))
+* **app:** drive the main user flows end to end with XCUITest ([#150](https://github.com/lquainta/RepoHub/issues/150)) ([37b52dd](https://github.com/lquainta/RepoHub/commit/37b52dd29b084529979fe22b8ace0651631aef7e))
+* **app:** read the stubbed request body to the end of its stream ([#189](https://github.com/lquainta/RepoHub/issues/189)) ([45f6e8d](https://github.com/lquainta/RepoHub/commit/45f6e8d37d9889db36104acb82dbc3ea5add6640))
+* **app:** snapshot key views in light, dark, English, and Spanish ([#153](https://github.com/lquainta/RepoHub/issues/153)) ([34ddf19](https://github.com/lquainta/RepoHub/commit/34ddf19a3aedd770d06e12ba4b27eb74aaec9f8a))
+* **app:** snapshot the menu bar panel, dashboard table, Activity window, and error states ([#191](https://github.com/lquainta/RepoHub/issues/191)) ([fca89e3](https://github.com/lquainta/RepoHub/commit/fca89e3afcd19dcd47790bc2be1dbffda9572636))
+* **backend:** cover every route's failures and paginate pull requests ([#154](https://github.com/lquainta/RepoHub/issues/154)) ([8124ab0](https://github.com/lquainta/RepoHub/commit/8124ab0f6a3dad15390423034cb895239e3ff808))
+* **backend:** cover the API's edge cases, middleware, and error transports ([#183](https://github.com/lquainta/RepoHub/issues/183)) ([61f6040](https://github.com/lquainta/RepoHub/commit/61f60405d54eb39ca7fb5d798ee27d2f9e8247e4))
+* **backend:** keep the rate-limit API test inside one minute window ([#169](https://github.com/lquainta/RepoHub/issues/169)) ([524a6c0](https://github.com/lquainta/RepoHub/commit/524a6c0cba9f66c04f01797a004b75a8edc8594d))
+* **backend:** make sure integration tests run in CI, and locally in one step ([#155](https://github.com/lquainta/RepoHub/issues/155)) ([c9b97f4](https://github.com/lquainta/RepoHub/commit/c9b97f490274565baf78981672cf9c883aee29c8))
+* **core:** cover the remaining error paths and fallbacks ([#178](https://github.com/lquainta/RepoHub/issues/178)) ([d4fd0a4](https://github.com/lquainta/RepoHub/commit/d4fd0a4319acdadc9c2adf13f6506c6b2f219e42))
+
+
+### CI/CD
+
+* **deps:** bump superfly/flyctl-actions/setup-flyctl from 1.5 to 1.6 in the actions-minor-and-patch group ([#192](https://github.com/lquainta/RepoHub/issues/192)) ([783dfc9](https://github.com/lquainta/RepoHub/commit/783dfc90d222d75ecfd17855c95239084efa2e0b))
+* drop CodeQL results in dependency code before uploading ([#165](https://github.com/lquainta/RepoHub/issues/165)) ([5ae1c93](https://github.com/lquainta/RepoHub/commit/5ae1c931111469eec8182d1f17ead16599546c48))
+* publish the macOS app as a DMG on each GitHub Release ([#167](https://github.com/lquainta/RepoHub/issues/167)) ([ba85dd9](https://github.com/lquainta/RepoHub/commit/ba85dd9e7812679e06a5ec921125157e5d2f6cc7))
+
 ## [0.2.0](https://github.com/lquainta/RepoHub/compare/v0.1.0...v0.2.0) (2026-10-22)
 
 
