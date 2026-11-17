@@ -57,6 +57,15 @@ final class FlowTests: XCTestCase {
         XCTAssertTrue(text.contains("repohub-ui-git"), "Row text: \(text)")
     }
 
+    func testTheDashboardGetsAtLeastItsMinimumWidth() {
+        waitForRepositories()
+        // The details pane used to take the spare width and leave the
+        // dashboard 200 points, enough for the Name column only (#170).
+        let table = element("repositoryTable")
+        XCTAssertTrue(table.waitForExistence(timeout: 10))
+        XCTAssertGreaterThanOrEqual(table.frame.width, 300)
+    }
+
     func testFilteringByUncommittedChangesShowsOnlyDirtyRepositories() {
         waitForRepositories()
 

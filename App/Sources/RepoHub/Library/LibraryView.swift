@@ -35,7 +35,10 @@ struct LibraryView: View {
                 gitHub: model.selectedRow?.gitHub,
                 branch: model.selectedRow?.currentBranch
             )
-            .navigationSplitViewColumnWidth(min: 280, ideal: 360)
+            // The maximum matters: without one, the split view gives the details
+            // pane all the spare width and squeezes the dashboard to 200 points,
+            // below its minimum (#170).
+            .navigationSplitViewColumnWidth(min: 280, ideal: 360, max: 360)
         }
         .toolbar {
             ToolbarItem {
